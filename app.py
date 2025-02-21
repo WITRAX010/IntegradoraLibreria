@@ -10,7 +10,7 @@ db_config = {
     'user': 'root',        
     'password': 'root',    
     'host': 'localhost',
-    'database': 'integradora'
+    'database': 'integradora1'
 }
 
 # Función para obtener conexión a la BD con manejo de excepciones
