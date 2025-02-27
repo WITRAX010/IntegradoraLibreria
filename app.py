@@ -1,48 +1,23 @@
-from flask import Flask, redirect, jsonify
-import mysql.connector
-from mysql.connector import Error
+from flask import Flask, redirect, url_for
+from db import get_db_connection
 
 app = Flask(__name__)
-app.secret_key = 'mi_clave_secreta'  # Para sesiones
 
-# Configuración de conexión a la base de datos
-db_config = {
-    'user': 'root',        
-    'password': 'root',    
-    'host': 'localhost',
-    'database': 'integradora1'
-}
+# Configuración de la aplicación
+app.secret_key = 'tu_clave_secreta'  # Cambia esto por una clave segura
 
-# Función para obtener conexión a la BD con manejo de excepciones
-def get_db_connection():
-    try:
-        return mysql.connector.connect(**db_config)
-    except Error as e:
-        print(f"Error al conectar a la base de datos: {e}")
-        return None
+# Importa los blueprints después de crear la aplicación
+from login import login_bp
+from usuarios import usuarios_bp
 
-# Importar y registrar el blueprint de login
-try:
-    from login import login_bp  
-    app.register_blueprint(login_bp)
-except ImportError as e:
-    print(f"Error al importar el blueprint de login: {e}")
+# Registra los blueprints
+app.register_blueprint(login_bp)
+app.register_blueprint(usuarios_bp)
 
-# Importar y registrar el blueprint de usuarios (para los dashboards)
-try:
-    from usuarios import usuarios_bp  
-    app.register_blueprint(usuarios_bp)
-except ImportError as e:
-    print(f"Error al importar el blueprint de usuarios: {e}")
-
-# Ruta raíz que redirige a la página de login
+# Ruta para la URL raíz
 @app.route('/')
 def index():
-    return redirect('/login')
+    return redirect(url_for('login.login'))
 
-# Iniciar la aplicación con manejo de errores
 if __name__ == '__main__':
-    try:
-        app.run(debug=True)
-    except Exception as e:
-        print(f"Error al iniciar la aplicación: {e}")
+    app.run(debug=True)
