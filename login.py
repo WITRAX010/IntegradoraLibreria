@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template_string, request, redirect, url_for
 import mysql.connector
-from app import get_db_connection
 import hashlib
+from db import get_db_connection  # Cambia esta línea
 
 # Blueprint para manejar rutas de login
 login_bp = Blueprint('login', __name__, url_prefix='/login')
@@ -42,7 +42,8 @@ login_template = '''
             margin-bottom: 5px;
             display: block;
         }
-        input[type="text"], input[type="password"], input[type="email"], input[type="tel"] {
+        input[type="text"], input[type="password"],
+        input[type="email"], input[type="tel"] {
             width: 100%;
             padding: 10px;
             margin: 10px 0;
@@ -86,7 +87,7 @@ login_template = '''
     <div class="container">
         <h2>Iniciar Sesión</h2>
         {% if error %}
-            <div class="message">{{ error }}</div>
+        <div class="message">{{ error }}</div>
         {% endif %}
         <form method="post">
             <label for="username">Username:</label>
@@ -96,9 +97,8 @@ login_template = '''
             <button type="submit">Ingresar</button>
         </form>
         <a href="/login/register">¿No tienes cuenta? Regístrate aquí.</a>
-
         {% if role %}
-            <div class="role-message">Bienvenido, {{ role }} {{ nombre }}</div>
+        <div class="role-message">Bienvenido, {{ role }} {{ nombre }}</div>
         {% endif %}
     </div>
 </body>
@@ -141,7 +141,8 @@ register_template = '''
             margin-bottom: 5px;
             display: block;
         }
-        input[type="text"], input[type="password"], input[type="email"], input[type="tel"] {
+        input[type="text"], input[type="password"],
+        input[type="email"], input[type="tel"] {
             width: 100%;
             padding: 10px;
             margin: 10px 0;
@@ -208,20 +209,19 @@ def login():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-
         try:
             conn = get_db_connection()
             cursor = conn.cursor(dictionary=True)
             query = """
-                SELECT UsuariolD, Username, Nombre, PrimerApellido, SegundoApellido, Rol, Password 
-                FROM Usuarios 
-                WHERE Username = %s
+            SELECT UsuariolD, Username, Nombre, PrimerApellido,
+            SegundoApellido, Rol, Password
+            FROM Usuarios
+            WHERE Username = %s
             """
             cursor.execute(query, (username,))
             user = cursor.fetchone()
             cursor.close()
             conn.close()
-
             # Verificar si el hash de la contraseña coincide
             if user and hashlib.sha256(password.encode()).hexdigest() == user['Password']:
                 nombre_completo = f"{user['Nombre']} {user['PrimerApellido']} {user['SegundoApellido']}"
@@ -229,10 +229,8 @@ def login():
                 return redirect(url_for('usuarios.admin_dashboard' if user['Rol'] else 'usuarios.cliente_dashboard', nombre=nombre_completo))
             else:
                 return render_template_string(login_template, error="Usuario o contraseña incorrectos.")
-
         except mysql.connector.Error as err:
             return f"Error de base de datos: {err}"
-
     return render_template_string(login_template)
 
 # Ruta para registrar un nuevo usuario
@@ -246,25 +244,20 @@ def register():
         primer_apellido = request.form['primer_apellido']
         segundo_apellido = request.form['segundo_apellido']
         telefono = request.form['telefono']
-
         # Hashear la contraseña antes de insertarla
         hashed_password = hashlib.sha256(password.encode()).hexdigest()
-
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
             query = """
-                INSERT INTO Usuarios (Username, Email, Password, Nombre, PrimerApellido, SegundoApellido, Telefono, Rol)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, 0)
+            INSERT INTO Usuarios (Username, Email, Password, Nombre, PrimerApellido, SegundoApellido, Telefono, Rol)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, 0)
             """
             cursor.execute(query, (username, email, hashed_password, nombre, primer_apellido, segundo_apellido, telefono))
             conn.commit()
             cursor.close()
             conn.close()
-
             return redirect('/login')
-
         except mysql.connector.Error as err:
             return f"Error de base de datos: {err}"
-
     return render_template_string(register_template)
