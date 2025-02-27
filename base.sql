@@ -58,3 +58,12 @@ VALUES
 SELECT * FROM Usuarios;
 
 ALTER TABLE Usuarios MODIFY Password VARCHAR(64);
+
+SET SQL_SAFE_UPDATES = 0;
+
+UPDATE Usuarios 
+SET password = '713bfda78870bf9d1b261f565286f85e97ee614efe5f0faf7c34e7ca4f65baca'
+WHERE username = 'admin123';
+
+SET SQL_SAFE_UPDATES = 1;
+
