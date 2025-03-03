@@ -55,9 +55,9 @@ VALUES
   ('admin123', 'admin@mail.com', 'adminpass', 'Admin', 'Master', 'CEO', '5550000000', TRUE);
 
 -- Ver los datos insertados
-SELECT * FROM Usuarios;
+SELECT * FROM usuarios;
 
-ALTER TABLE Usuarios MODIFY Password VARCHAR(64);
+ALTER TABLE Usuarios MODIFY Telefono INT;
 
 SET SQL_SAFE_UPDATES = 0;
 
@@ -67,3 +67,24 @@ WHERE username = 'admin123';
 
 SET SQL_SAFE_UPDATES = 1;
 
+ALTER TABLE Direccion MODIFY Pais VARCHAR(50) NOT NULL;
+
+ALTER TABLE Libros 
+ADD COLUMN FechaPublicacion DATETIME DEFAULT CURRENT_TIMESTAMP,
+ADD COLUMN EsNuevo BOOLEAN DEFAULT TRUE;
+
+
+-- Crear tabla para almacenar las valoraciones de los libros
+CREATE TABLE ValoracionesLibros (
+    ValoracionlD INT AUTO_INCREMENT PRIMARY KEY,
+    UsuariolD INT NOT NULL,
+    LibrolD INT NOT NULL,
+    Rating FLOAT NOT NULL,
+    FechaValoracion DATETIME NOT NULL,
+    FOREIGN KEY (UsuariolD) REFERENCES Usuarios(UsuariolD),
+    FOREIGN KEY (LibrolD) REFERENCES Libros(LibrolD),
+    CONSTRAINT check_rating CHECK (Rating >= 1 AND Rating <= 5),
+    CONSTRAINT unique_valoracion UNIQUE (UsuariolD, LibrolD)
+);
+
+ALTER TABLE Usuarios MODIFY COLUMN Telefono BIGINT NOT NULL;
