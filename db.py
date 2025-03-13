@@ -3,9 +3,9 @@ from mysql.connector import Error
 
 # Configuración de conexión a la base de datos
 db_config = {
-    'user': 'root',
-    'password': 'root',
-    'host': 'localhost',
+    'user': 'admin',
+    'password': 'cisco123',
+    'host': 'basedatosintegradora.cjnmbvgjimyl.us-east-1.rds.amazonaws.com',
     'database': 'integradora1'
 }
 
