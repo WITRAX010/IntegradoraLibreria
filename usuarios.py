@@ -4,28 +4,33 @@ import hashlib
 import mysql.connector  
 from datetime import datetime, timedelta
 
-
-
 # Blueprint para manejar rutas de usuario
 usuarios_bp = Blueprint('usuarios', __name__)
 
+from flask import url_for
+
 def navbar(role, nombre):
-    admin_links = '''
-    <li><a href="{{ url_for('usuarios.admin_libros') }}">Gestionar Libros</a></li>
-    <li><a href="{{ url_for('usuarios.admin_pedidos') }}">Pedidos</a></li>
-    <li><a href="{{ url_for('usuarios.admin_reportes') }}">Reportes</a></li>
-    <li><a href="{{ url_for('usuarios.admin_usuarios') }}">Usuarios</a></li>  <!-- Nuevo enlace -->
-    '''
-    cliente_links = '''
-    <li><a href="{{ url_for('usuarios.cliente_dashboard') }}">Inicio</a></li>
-    <li><a href="{{ url_for('usuarios.carrito') }}">Carrito</a></li>
-    <li><a href="{{ url_for('usuarios.mis_pedidos') }}">Mis Pedidos</a></li>
-    <li><a href="{{ url_for('usuarios.direcciones') }}">Mis Direcciones</a></li>
-    <li><a href="{{ url_for('usuarios.configuracion') }}">Mi Cuenta</a></li>
+    # Enlaces para administradores
+    admin_links = f'''
+    <li><a href="{url_for('usuarios.admin_libros')}">Gestionar Libros</a></li>
+    <li><a href="{url_for('usuarios.admin_pedidos')}">Pedidos</a></li>
+    <li><a href="{url_for('usuarios.admin_reportes')}">Reportes</a></li>
+    <li><a href="{url_for('usuarios.admin_usuarios')}">Usuarios</a></li>
     '''
     
+    # Enlaces para clientes
+    cliente_links = f'''
+    <li><a href="{url_for('usuarios.cliente_dashboard')}">Inicio</a></li>
+    <li><a href="{url_for('usuarios.carrito')}">Carrito</a></li>
+    <li><a href="{url_for('usuarios.mis_pedidos')}">Mis Pedidos</a></li>
+    <li><a href="{url_for('usuarios.direcciones')}">Mis Direcciones</a></li>
+    <li><a href="{url_for('usuarios.configuracion')}">Mi Cuenta</a></li>
+    '''
+    
+    # Enlace del dashboard (dependiendo del rol)
     dashboard_link = url_for('usuarios.admin_dashboard') if role == 'admin' else url_for('usuarios.cliente_dashboard')
     
+    # Construir el navbar
     return f'''
     <header>
         <nav class="navbar">
@@ -38,7 +43,6 @@ def navbar(role, nombre):
     </header>
     '''
 
-
 # Función para verificar si un libro es nuevo (menos de 14 días desde su publicación)
 def es_libro_nuevo(fecha_publicacion):
     if not fecha_publicacion:
@@ -48,14 +52,14 @@ def es_libro_nuevo(fecha_publicacion):
     return fecha_publicacion > fecha_limite
 
 
+
 @usuarios_bp.route('/direcciones', methods=['GET', 'POST'])
 def direcciones():
-    # Verificar si el usuario ha iniciado sesión
     if 'user_id' not in session:
         flash('Debe iniciar sesión para ver sus direcciones', 'error')
         return redirect(url_for('login.login'))
         
-    user_id = session['user_id']  # Obtener el ID del usuario de la sesión
+    user_id = session['user_id']
     conn = get_db_connection()
 
     if conn is None:
@@ -71,7 +75,6 @@ def direcciones():
         ciudad = request.form['ciudad']
 
         try:
-            # No necesitamos convertir pais a entero ya que ahora es VARCHAR en la base de datos
             cursor.execute(
                 "INSERT INTO Direccion (UsuariolD, Calle, Colonia, Pais, Ciudad) VALUES (%s, %s, %s, %s, %s)",
                 (user_id, calle, colonia, pais, ciudad)
@@ -84,7 +87,6 @@ def direcciones():
         finally:
             cursor.close()
 
-    # Obtener las direcciones del usuario (usa un nuevo cursor después de cerrar el anterior)
     cursor = conn.cursor(dictionary=True)
     try:
         cursor.execute("SELECT * FROM Direccion WHERE UsuariolD = %s", (user_id,))
@@ -100,14 +102,15 @@ def direcciones():
     return render_template('direcciones.html', direcciones=direcciones)
 
 
+
+
 @usuarios_bp.route('/direcciones/editar/<int:direccion_id>', methods=['GET', 'POST'])
 def editar_direccion(direccion_id):
-    # Verificar si el usuario ha iniciado sesión
     if 'user_id' not in session:
         flash('Debe iniciar sesión para editar direcciones', 'error')
         return redirect(url_for('login.login'))
         
-    user_id = session['user_id']  # Obtener el ID del usuario de la sesión
+    user_id = session['user_id']
     conn = get_db_connection()
 
     if conn is None:
@@ -137,7 +140,6 @@ def editar_direccion(direccion_id):
             cursor.close()
             conn.close()
 
-    # Obtener la dirección a editar
     cursor = conn.cursor(dictionary=True)
     try:
         cursor.execute("SELECT * FROM Direccion WHERE DireccionlD = %s AND UsuariolD = %s", (direccion_id, user_id))
@@ -156,16 +158,13 @@ def editar_direccion(direccion_id):
 
     return render_template('editar_direccion.html', direccion=direccion)
 
-    
-
 @usuarios_bp.route('/direcciones/eliminar/<int:direccion_id>')
 def eliminar_direccion(direccion_id):
-    # Verificar si el usuario ha iniciado sesión
     if 'user_id' not in session:
         flash('Debe iniciar sesión para eliminar direcciones', 'error')
         return redirect(url_for('login.login'))
         
-    user_id = session['user_id']  # Obtener el ID del usuario de la sesión
+    user_id = session['user_id']
     conn = get_db_connection()
 
     if conn is None:
@@ -186,11 +185,9 @@ def eliminar_direccion(direccion_id):
         conn.close()
 
     return redirect(url_for('usuarios.direcciones'))
-    
-# Dashboard de administrador
+
 @usuarios_bp.route('/admin_dashboard')
 def admin_dashboard():
-    # Verificar si el usuario ha iniciado sesión y es administrador
     if 'user_id' not in session:
         flash('Debe iniciar sesión para acceder al panel de administración', 'error')
         return redirect(url_for('login.login'))
@@ -199,7 +196,6 @@ def admin_dashboard():
     try:
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
-        # Obtener estadísticas para el dashboard
         cursor.execute("SELECT COUNT(*) as total_libros FROM Libros")
         total_libros = cursor.fetchone()['total_libros']
         cursor.execute("SELECT COUNT(*) as total_usuarios FROM Usuarios WHERE Rol = 0")
@@ -269,10 +265,67 @@ def admin_dashboard():
     </html>
     ''')
 
-# Primero, vamos a corregir la función JS para valorar libros en el dashboard del cliente
+@usuarios_bp.route('/admin/ver-comentarios/<int:libro_id>')
+def ver_comentarios(libro_id):
+    if 'user_id' not in session:
+        flash('Debe iniciar sesión para acceder a esta página', 'error')
+        return redirect(url_for('login.login'))
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT v.Rating, v.Comentario, v.FechaValoracion, u.Nombre AS NombreUsuario
+            FROM ValoracionesLibros v
+            JOIN Usuarios u ON v.UsuarioID = u.UsuarioID
+            WHERE v.LibroID = %s
+            ORDER BY v.FechaValoracion DESC
+        """, (libro_id,))
+        valoraciones = cursor.fetchall()
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        valoraciones = []
+        print(f"Error al obtener comentarios: {e}")
+
+    return render_template_string('''
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Comentarios del Libro</title>
+        <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    </head>
+    <body>
+    ''' + navbar('admin', 'Administrador') + '''
+    <div class="container">
+        <h1>Comentarios del Libro</h1>
+        <a href="{{ url_for('usuarios.admin_libros') }}" class="btn">Volver a la lista de libros</a>
+        <div class="comentarios-list">
+            {% for valoracion in valoraciones %}
+            <div class="comentario">
+                <strong>{{ valoracion.NombreUsuario }}</strong> - <em>{{ valoracion.FechaValoracion.strftime('%d/%m/%Y %H:%M') }}</em>
+                <div class="rating-stars">
+                    {% for i in range(5) %}
+                        {% if i < valoracion.Rating %}
+                            <span style="color: #FFD700;">★</span>
+                        {% else %}
+                            <span style="color: #ccc;">★</span>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                <p>{{ valoracion.Comentario }}</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    </body>
+    </html>
+    ''', valoraciones=valoraciones)
+
 @usuarios_bp.route('/cliente_dashboard')
 def cliente_dashboard():
-    # Verificar si el usuario ha iniciado sesión
     if 'user_id' not in session:
         flash('Debe iniciar sesión para acceder al panel de cliente', 'error')
         return redirect(url_for('login.login'))
@@ -281,7 +334,6 @@ def cliente_dashboard():
     try:
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
-        # Modificar la consulta para obtener también la fecha de publicación y estado "nuevo"
         cursor.execute("SELECT *, (DATEDIFF(NOW(), FechaPublicacion) <= 14) AS MostrarNuevo FROM Libros")
         libros = cursor.fetchall()
         cursor.close()
@@ -298,71 +350,6 @@ def cliente_dashboard():
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Panel de Cliente</title>
         <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-        <style>
-            .libro-card {
-                border: 1px solid #ddd;
-                border-radius: 8px;
-                padding: 15px;
-                margin-bottom: 20px;
-                position: relative;
-                transition: transform 0.3s;
-            }
-            .libro-card:hover {
-                transform: translateY(-5px);
-                box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-            }
-            .etiqueta-nuevo {
-                position: absolute;
-                top: 10px;
-                right: 10px;
-                background-color: #FF5722;
-                color: white;
-                padding: 5px 10px;
-                border-radius: 3px;
-                font-size: 12px;
-                font-weight: bold;
-            }
-            .star-rating {
-                color: #FFD700;
-                font-size: 24px;
-                margin: 10px 0;
-            }
-            .libros-grid {
-                display: grid;
-                grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-                gap: 20px;
-            }
-            .precio {
-                font-size: 1.2em;
-                font-weight: bold;
-                color: #333;
-                margin: 10px 0;
-            }
-            .acciones {
-                margin-top: 15px;
-            }
-            .rating-container {
-                display: flex;
-                align-items: center;
-                margin: 10px 0;
-            }
-            .rating-stars {
-                display: inline-block;
-                margin-right: 10px;
-            }
-            .rating-value {
-                font-weight: bold;
-                margin-left: 5px;
-            }
-            .star-rating-select .star {
-                cursor: pointer;
-                font-size: 24px;
-                color: #ccc;
-            }
-            .star-rating-select .star:hover {
-                color: #FFD700;
-            }
-        </style>
     </head>
     <body>
     ''' + navbar('cliente', nombre) + '''
@@ -400,6 +387,7 @@ def cliente_dashboard():
                 <div class="acciones">
                     <a href="#" class="btn" onclick="agregarAlCarrito({{ libro.LibrolD }})">Agregar al Carrito</a>
                     <a href="#" class="btn" onclick="mostrarValorarLibro({{ libro.LibrolD }})">Valorar</a>
+                    <a href="{{ url_for('usuarios.ver_comentarios_cliente', libro_id=libro.LibrolD) }}" class="btn">Ver Comentarios</a>
                 </div>
             </div>
             {% endfor %}
@@ -420,31 +408,29 @@ def cliente_dashboard():
                 <input type="hidden" id="rating-value" value="0">
                 <input type="hidden" id="libro-id" value="">
                 <div style="margin-top: 20px;">
+                    <label for="comentario">Comentario (opcional):</label>
+                    <textarea id="comentario" rows="4" style="width: 100%;"></textarea>
+                </div>
+                <div style="margin-top: 20px;">
                     <button class="btn" onclick="guardarValoracion()">Guardar</button>
                     <button class="btn" onclick="cerrarModal()">Cancelar</button>
                 </div>
             </div>
         </div>
     </div>
-    
     <script>
-        // Funciones JS para manejo del carrito y valoraciones
         function agregarAlCarrito(librold) {
-            // Aquí implementarías la lógica para agregar al carrito
             alert('Libro agregado al carrito');
         }
         
         function mostrarValorarLibro(librold) {
-            // Obtener el elemento del libro por su ID
             const libroCard = document.querySelector(`[data-libro-id="${librold}"]`);
             const libroNombre = libroCard.getAttribute('data-libro-nombre');
             
-            // Configurar el modal
             document.getElementById('libro-nombre').textContent = libroNombre;
             document.getElementById('libro-id').value = librold;
             document.getElementById('modal-valorar').style.display = 'block';
             
-            // Resetear las estrellas
             document.getElementById('rating-value').value = 0;
             const estrellas = document.querySelectorAll('.star-rating-select .star');
             estrellas.forEach(estrella => {
@@ -466,59 +452,57 @@ def cliente_dashboard():
         }
         
         function guardarValoracion() {
-    const librold = document.getElementById('libro-id').value;
-    const valoracion = document.getElementById('rating-value').value;
-    
-    if (valoracion == 0) {
-        alert('Por favor selecciona una valoración');
-        return;
-    }
-    
-    // Enviar los datos al servidor con fetch
-    const formData = new FormData();
-    formData.append('libro_id', librold);
-    formData.append('rating', valoracion);
-    
-    fetch('/valorar-libro', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            // Actualizar la visualización de las estrellas
-            const ratingContainer = document.querySelector(`#rating-container-${librold} .rating-stars`);
-            const ratingValue = document.getElementById(`rating-value-${librold}`);
+            const libroId = document.getElementById('libro-id').value;
+            const valoracion = document.getElementById('rating-value').value;
+            const comentario = document.getElementById('comentario').value;
             
-            // Actualizar el texto de rating
-            ratingValue.textContent = parseFloat(data.new_rating).toFixed(1);
-            
-            // Actualizar las estrellas visualmente
-            let starHTML = '';
-            const rating = parseFloat(data.new_rating);
-            for (let i = 0; i < 5; i++) {
-                if (i < Math.floor(rating)) {
-                    starHTML += '<span style="color: #FFD700;">★</span>';
-                } else if (i === Math.floor(rating) && rating % 1 !== 0) {
-                    starHTML += '<span style="color: #FFD700;">★</span>';
-                } else {
-                    starHTML += '<span style="color: #ccc;">★</span>';
-                }
+            if (valoracion == 0) {
+                alert('Por favor selecciona una valoración');
+                return;
             }
-            ratingContainer.innerHTML = starHTML;
             
-            alert('Valoración guardada correctamente');
-        } else {
-            alert('Error: ' + data.message);
+            const formData = new FormData();
+            formData.append('libro_id', libroId);
+            formData.append('rating', valoracion);
+            formData.append('comentario', comentario);
+            
+            fetch('/valorar-libro', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const ratingContainer = document.querySelector(`#rating-container-${libroId} .rating-stars`);
+                    const ratingValue = document.getElementById(`rating-value-${libroId}`);
+                    
+                    ratingValue.textContent = parseFloat(data.new_rating).toFixed(1);
+                    
+                    let starHTML = '';
+                    const rating = parseFloat(data.new_rating);
+                    for (let i = 0; i < 5; i++) {
+                        if (i < Math.floor(rating)) {
+                            starHTML += '<span style="color: #FFD700;">★</span>';
+                        } else if (i === Math.floor(rating) && rating % 1 !== 0) {
+                            starHTML += '<span style="color: #FFD700;">★</span>';
+                        } else {
+                            starHTML += '<span style="color: #ccc;">★</span>';
+                        }
+                    }
+                    ratingContainer.innerHTML = starHTML;
+                    
+                    alert('Valoración y comentario guardados correctamente');
+                } else {
+                    alert('Error: ' + data.message);
+                }
+                cerrarModal();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error al procesar la valoración');
+                cerrarModal();
+            });
         }
-        cerrarModal();
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('Error al procesar la valoración');
-        cerrarModal();
-    });
-}
         
         function cerrarModal() {
             document.getElementById('modal-valorar').style.display = 'none';
@@ -527,6 +511,7 @@ def cliente_dashboard():
     </body>
     </html>
     ''', libros=libros)
+
 
 # Ruta para listar usuarios
 @usuarios_bp.route('/admin/usuarios')
@@ -674,6 +659,7 @@ def agregar_usuario():
     ''')
 
 # Ruta para editar un usuario
+# Ruta para editar un usuario (incluyendo cambio de contraseña)
 @usuarios_bp.route('/admin/usuarios/editar/<int:usuario_id>', methods=['GET', 'POST'])
 def editar_usuario(usuario_id):
     if 'user_id' not in session:
@@ -687,14 +673,26 @@ def editar_usuario(usuario_id):
         primer_apellido = request.form['primer_apellido']
         segundo_apellido = request.form['segundo_apellido']
         telefono = request.form['telefono']
+        nueva_password = request.form.get('nueva_password')  # Campo opcional para cambiar la contraseña
         
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
-            cursor.execute(
-                "UPDATE Usuarios SET Username = %s, Email = %s, Nombre = %s, PrimerApellido = %s, SegundoApellido = %s, Telefono = %s WHERE UsuariolD = %s",
-                (username, email, nombre, primer_apellido, segundo_apellido, telefono, usuario_id)
-            )
+            
+            # Si se proporcionó una nueva contraseña, la actualizamos
+            if nueva_password:
+                hashed_password = hashlib.sha256(nueva_password.encode()).hexdigest()
+                cursor.execute(
+                    "UPDATE Usuarios SET Username = %s, Email = %s, Nombre = %s, PrimerApellido = %s, SegundoApellido = %s, Telefono = %s, Password = %s WHERE UsuariolD = %s",
+                    (username, email, nombre, primer_apellido, segundo_apellido, telefono, hashed_password, usuario_id)
+                )
+            else:
+                # Si no se proporcionó una nueva contraseña, actualizamos solo los demás campos
+                cursor.execute(
+                    "UPDATE Usuarios SET Username = %s, Email = %s, Nombre = %s, PrimerApellido = %s, SegundoApellido = %s, Telefono = %s WHERE UsuariolD = %s",
+                    (username, email, nombre, primer_apellido, segundo_apellido, telefono, usuario_id)
+                )
+            
             conn.commit()
             cursor.close()
             conn.close()
@@ -753,6 +751,11 @@ def editar_usuario(usuario_id):
                 <label for="telefono">Teléfono</label>
                 <input type="tel" class="form-control" id="telefono" name="telefono" value="{{ usuario.Telefono }}" required>
             </div>
+            <div class="form-group">
+                <label for="nueva_password">Nueva Contraseña</label>
+                <input type="password" class="form-control" id="nueva_password" name="nueva_password">
+                <small>Deja este campo en blanco si no deseas cambiar la contraseña.</small>
+            </div>
             <button type="submit" class="btn">Actualizar Usuario</button>
         </form>
     </div>
@@ -781,9 +784,9 @@ def eliminar_usuario(usuario_id):
 
     return redirect(url_for('usuarios.admin_usuarios'))    
 
+
 @usuarios_bp.route('/mis_pedidos')
 def mis_pedidos():
-    # Verificar si el usuario ha iniciado sesión
     if 'user_id' not in session:
         flash('Debe iniciar sesión para ver sus pedidos', 'error')
         return redirect(url_for('login.login'))
@@ -810,7 +813,6 @@ def mis_pedidos():
 
 @usuarios_bp.route('/configuracion', methods=['GET', 'POST'])
 def configuracion():
-    # Verificar si el usuario ha iniciado sesión
     if 'user_id' not in session:
         flash('Debe iniciar sesión para acceder a la configuración', 'error')
         return redirect(url_for('login.login'))
@@ -818,7 +820,6 @@ def configuracion():
     user_id = session['user_id']
     nombre = request.args.get('nombre', 'Cliente')
     
-    # Obtener los datos actuales del usuario
     conn = get_db_connection()
     if conn is None:
         flash('Error al conectar a la base de datos', 'error')
@@ -826,46 +827,37 @@ def configuracion():
     
     cursor = conn.cursor(dictionary=True)
     
-    # Si el formulario ha sido enviado, actualizar los datos
     if request.method == 'POST':
-        # Obtener los datos del formulario
         email = request.form['email']
         nombre_usuario = request.form['nombre']
         primer_apellido = request.form['primer_apellido']
         segundo_apellido = request.form['segundo_apellido']
         telefono = request.form['telefono']
         
-        # Verificar si se ha proporcionado una nueva contraseña
         nueva_password = request.form.get('nueva_password')
         confirmar_password = request.form.get('confirmar_password')
         password_actual = request.form.get('password_actual')
         
         try:
-            # Primero, verificar la contraseña actual si se desea cambiar
             if nueva_password:
-                # Verificar que la nueva contraseña y la confirmación coincidan
                 if nueva_password != confirmar_password:
                     flash('La nueva contraseña y la confirmación no coinciden', 'error')
                     raise ValueError("Las contraseñas no coinciden")
                 
-                # Verificar la contraseña actual
                 cursor.execute("SELECT Password FROM Usuarios WHERE UsuariolD = %s", (user_id,))
                 usuario_db = cursor.fetchone()
-                # Hashear la contraseña actual proporcionada para compararla con la almacenada
                 hashed_password_actual = hashlib.sha256(password_actual.encode()).hexdigest()
                 
                 if usuario_db and usuario_db['Password'] != hashed_password_actual:
                     flash('La contraseña actual es incorrecta', 'error')
                     raise ValueError("Contraseña actual incorrecta")
                 
-                # Si la verificación es exitosa, incluir la nueva contraseña hasheada en la actualización
                 hashed_nueva_password = hashlib.sha256(nueva_password.encode()).hexdigest()
                 cursor.execute(
                     "UPDATE Usuarios SET Email = %s, Nombre = %s, PrimerApellido = %s, SegundoApellido = %s, Telefono = %s, Password = %s WHERE UsuariolD = %s",
                     (email, nombre_usuario, primer_apellido, segundo_apellido, telefono, hashed_nueva_password, user_id)
                 )
             else:
-                # Actualizar los datos sin cambiar la contraseña
                 cursor.execute(
                     "UPDATE Usuarios SET Email = %s, Nombre = %s, PrimerApellido = %s, SegundoApellido = %s, Telefono = %s WHERE UsuariolD = %s",
                     (email, nombre_usuario, primer_apellido, segundo_apellido, telefono, user_id)
@@ -875,13 +867,11 @@ def configuracion():
             flash('Datos actualizados correctamente', 'success')
             
         except ValueError:
-            # Los errores de validación ya han sido manejados con flash
             pass
         except mysql.connector.Error as err:
             print(f"Error al actualizar datos: {err}")
             flash(f'Error al actualizar los datos: {err}', 'error')
     
-    # Obtener datos actuales del usuario para mostrar en el formulario
     try:
         cursor.execute("SELECT * FROM Usuarios WHERE UsuariolD = %s", (user_id,))
         usuario = cursor.fetchone()
@@ -904,61 +894,6 @@ def configuracion():
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Mi Cuenta</title>
         <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-        <style>
-            .form-container {
-                max-width: 600px;
-                margin: 0 auto;
-                padding: 20px;
-                background: #f9f9f9;
-                border-radius: 8px;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            }
-            .form-group {
-                margin-bottom: 20px;
-            }
-            .form-group label {
-                display: block;
-                margin-bottom: 5px;
-                font-weight: bold;
-            }
-            .form-control {
-                width: 100%;
-                padding: 10px;
-                border: 1px solid #ddd;
-                border-radius: 4px;
-                font-size: 16px;
-            }
-            .password-section {
-                margin-top: 30px;
-                padding-top: 20px;
-                border-top: 1px solid #ddd;
-            }
-            .btn-save {
-                background-color: #4CAF50;
-                padding: 12px 20px;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                cursor: pointer;
-                font-size: 16px;
-            }
-            .btn-save:hover {
-                background-color: #45a049;
-            }
-            .alert {
-                padding: 10px;
-                margin-bottom: 15px;
-                border-radius: 4px;
-            }
-            .alert-success {
-                background-color: #d4edda;
-                color: #155724;
-            }
-            .alert-error {
-                background-color: #f8d7da;
-                color: #721c24;
-            }
-        </style>
     </head>
     <body>
     ''' + navbar('cliente', usuario['Nombre'] if usuario else nombre) + '''
@@ -1041,11 +976,8 @@ def configuracion():
     </html>
     ''', usuario=usuario)
 
-    
-# Ruta para listar todos los libros (modificada para mostrar fecha de publicación y rating)
 @usuarios_bp.route('/admin/libros')
 def admin_libros():
-    # Verificar si el usuario ha iniciado sesión y es administrador
     if 'user_id' not in session:
         flash('Debe iniciar sesión para acceder a la gestión de libros', 'error')
         return redirect(url_for('login.login'))
@@ -1069,19 +1001,6 @@ def admin_libros():
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Gestionar Libros</title>
         <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-        <style>
-            .etiqueta-nuevo {
-                background-color: #FF5722;
-                color: white;
-                padding: 2px 6px;
-                border-radius: 3px;
-                font-size: 12px;
-                font-weight: bold;
-            }
-            .rating-stars {
-                color: #FFD700;
-            }
-        </style>
     </head>
     <body>
     ''' + navbar('admin', 'Administrador') + '''
@@ -1146,17 +1065,10 @@ def admin_libros():
     </html>
     ''', libros=libros)
 
-
-
 @usuarios_bp.route('/logout')
 def logout():
-    # Eliminar los mensajes flash de la sesión
     session.pop('_flashes', None)
-    
-    # Cerrar la sesión del usuario
     session.clear()
-    
-    # Redirigir al usuario a la página de inicio de sesión
     return redirect(url_for('login.login'))
     
 @usuarios_bp.route('/valorar-libro', methods=['POST'])
@@ -1167,8 +1079,8 @@ def valorar_libro():
     usuario_id = session['user_id']
     libro_id = request.form.get('libro_id')
     rating = float(request.form.get('rating'))
+    comentario = request.form.get('comentario', '')  # Asegúrate de obtener el comentario
     
-    # Validar el rating
     if rating < 1 or rating > 5:
         return {'success': False, 'message': 'La valoración debe estar entre 1 y 5'}, 400
     
@@ -1176,26 +1088,21 @@ def valorar_libro():
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
         
-        # Verificar si el usuario ya ha valorado este libro
         cursor.execute("SELECT * FROM ValoracionesLibros WHERE UsuariolD = %s AND librold = %s", 
                       (usuario_id, libro_id))
         valoracion_existente = cursor.fetchone()
         
         if valoracion_existente:
-            # Usuario ya valoró este libro, devolver error
             cursor.close()
             conn.close()
             return {'success': False, 'message': 'Ya has valorado este libro anteriormente.'}, 400
         else:
-            # Insertar nueva valoración
-            cursor.execute("INSERT INTO ValoracionesLibros (UsuariolD, librold, Rating, FechaValoracion) VALUES (%s, %s, %s, NOW())",
-                          (usuario_id, libro_id, rating))
+            cursor.execute("INSERT INTO ValoracionesLibros (UsuariolD, librold, Rating, Comentario, FechaValoracion) VALUES (%s, %s, %s, %s, NOW())",
+                          (usuario_id, libro_id, rating, comentario))  # Asegúrate de insertar el comentario
         
-        # Actualizar el rating promedio en la tabla Libros
         cursor.execute("SELECT AVG(Rating) as rating_promedio FROM ValoracionesLibros WHERE librold = %s", (libro_id,))
         rating_promedio = cursor.fetchone()['rating_promedio']
         
-        # Actualizar la tabla Libros con el nuevo rating promedio
         cursor.execute("UPDATE Libros SET Rating = %s WHERE LibrolD = %s", (rating_promedio, libro_id))
         
         conn.commit()
@@ -1209,11 +1116,8 @@ def valorar_libro():
         return {'success': False, 'message': f'Error al guardar valoración: {str(e)}'}, 500
 
 
-
-# Ruta para agregar un libro (modificada para incluir fecha de publicación)
 @usuarios_bp.route('/admin/libros/agregar', methods=['GET', 'POST'])
 def agregar_libro():
-    # Verificar si el usuario ha iniciado sesión y es administrador
     if 'user_id' not in session:
         flash('Debe iniciar sesión para agregar libros', 'error')
         return redirect(url_for('login.login'))
@@ -1223,20 +1127,19 @@ def agregar_libro():
         precio = float(request.form['precio'])
         stock = int(request.form['stock'])
         descripcion = request.form['descripcion']
-        es_nuevo = 'es_nuevo' in request.form  # Checkbox para marcar como nuevo
+        es_nuevo = 'es_nuevo' in request.form
         
-        # Calcular fecha de publicación (ahora para nuevo, o hace un mes para no nuevo)
         if es_nuevo:
             fecha_publicacion = datetime.now()
         else:
-            fecha_publicacion = datetime.now() - timedelta(days=30)  # Un libro no nuevo tendrá más de 14 días
+            fecha_publicacion = datetime.now() - timedelta(days=30)
 
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
             cursor.execute(
                 "INSERT INTO Libros (NombreLibro, Precio, Stock, Descripcion, FechaPublicacion, EsNuevo, Rating) VALUES (%s, %s, %s, %s, %s, %s, %s)",
-                (nombre_libro, precio, stock, descripcion, fecha_publicacion, es_nuevo, 0)  # Rating inicia en 0
+                (nombre_libro, precio, stock, descripcion, fecha_publicacion, es_nuevo, 0)
             )
             conn.commit()
             cursor.close()
@@ -1290,10 +1193,49 @@ def agregar_libro():
     </html>
     ''')
 
-# Ruta para editar un libro (modificada para incluir fecha de publicación)
+
+@usuarios_bp.route('/ver_comentarios_cliente/<int:libro_id>')
+def ver_comentarios_cliente(libro_id):
+    if 'user_id' not in session:
+        flash('Debe iniciar sesión para ver los comentarios', 'error')
+        return redirect(url_for('login.login'))
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        
+        # Obtener los comentarios y valoraciones del libro
+        cursor.execute("""
+            SELECT v.Rating, v.Comentario, v.FechaValoracion, u.Nombre AS NombreUsuario
+            FROM ValoracionesLibros v
+            JOIN Usuarios u ON v.UsuariolD = u.UsuariolD
+            WHERE v.LibrolD = %s
+            ORDER BY v.FechaValoracion DESC
+        """, (libro_id,))
+        comentarios = cursor.fetchall()
+        
+        # Obtener el nombre del libro
+        cursor.execute("SELECT NombreLibro FROM Libros WHERE LibrolD = %s", (libro_id,))
+        libro = cursor.fetchone()
+        
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        comentarios = []
+        libro = {'NombreLibro': 'Libro no encontrado'}
+        print(f"Error al obtener comentarios: {e}")
+
+    # Renderizar la plantilla correctamente
+    return render_template(
+        'ver_comentarios.html',
+        comentarios=comentarios,
+        libro=libro,
+        navbar=navbar  # Pasar la función navbar a la plantilla
+    )
+
+
 @usuarios_bp.route('/admin/libros/editar/<int:libro_id>', methods=['GET', 'POST'])
 def editar_libro(libro_id):
-    # Verificar si el usuario ha iniciado sesión y es administrador
     if 'user_id' not in session:
         flash('Debe iniciar sesión para editar libros', 'error')
         return redirect(url_for('login.login'))
@@ -1305,11 +1247,9 @@ def editar_libro(libro_id):
         descripcion = request.form['descripcion']
         es_nuevo = 'es_nuevo' in request.form
         
-        # Si se marca como nuevo, actualizar la fecha de publicación a hoy
         if es_nuevo:
             fecha_publicacion = datetime.now()
         else:
-            # Si ya no es nuevo, mantener la fecha anterior o poner una fecha vieja
             fecha_publicacion = datetime.now() - timedelta(days=30)
 
         try:
@@ -1336,7 +1276,6 @@ def editar_libro(libro_id):
         cursor.close()
         conn.close()
         
-        # Calcular si el libro es nuevo basado en la fecha de publicación
         if 'FechaPublicacion' in libro and libro['FechaPublicacion']:
             libro['es_nuevo'] = es_libro_nuevo(libro['FechaPublicacion'])
         else:
@@ -1392,12 +1331,8 @@ def editar_libro(libro_id):
     </html>
     ''', libro=libro)
 
-
-
-# Ruta para eliminar un libro
 @usuarios_bp.route('/admin/libros/eliminar/<int:libro_id>')
 def eliminar_libro(libro_id):
-    # Verificar si el usuario ha iniciado sesión y es administrador
     if 'user_id' not in session:
         flash('Debe iniciar sesión para eliminar libros', 'error')
         return redirect(url_for('login.login'))
@@ -1416,10 +1351,8 @@ def eliminar_libro(libro_id):
 
     return redirect(url_for('usuarios.admin_libros'))
 
-# Ruta para gestionar pedidos (placeholder)
 @usuarios_bp.route('/admin/pedidos')
 def admin_pedidos():
-    # Verificar si el usuario ha iniciado sesión y es administrador
     if 'user_id' not in session:
         flash('Debe iniciar sesión para acceder a la gestión de pedidos', 'error')
         return redirect(url_for('login.login'))
@@ -1443,10 +1376,8 @@ def admin_pedidos():
     </html>
     ''')
 
-# Ruta para generar reportes (placeholder)
 @usuarios_bp.route('/admin/reportes')
 def admin_reportes():
-    # Verificar si el usuario ha iniciado sesión y es administrador
     if 'user_id' not in session:
         flash('Debe iniciar sesión para acceder a los reportes', 'error')
         return redirect(url_for('login.login'))
@@ -1470,9 +1401,10 @@ def admin_reportes():
     </html>
     ''')
 
+    
+    
 @usuarios_bp.route('/carrito')
 def carrito():
-    # Verificar si el usuario ha iniciado sesión
     if 'user_id' not in session:
         flash('Debe iniciar sesión para acceder al carrito', 'error')
         return redirect(url_for('login.login'))
@@ -1496,3 +1428,4 @@ def carrito():
     </body>
     </html>
     ''')
+
