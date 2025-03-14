@@ -14,6 +14,7 @@ def navbar(role, nombre):
     <li><a href="{{ url_for('usuarios.admin_libros') }}">Gestionar Libros</a></li>
     <li><a href="{{ url_for('usuarios.admin_pedidos') }}">Pedidos</a></li>
     <li><a href="{{ url_for('usuarios.admin_reportes') }}">Reportes</a></li>
+    <li><a href="{{ url_for('usuarios.admin_usuarios') }}">Usuarios</a></li>  <!-- Nuevo enlace -->
     '''
     cliente_links = '''
     <li><a href="{{ url_for('usuarios.cliente_dashboard') }}">Inicio</a></li>
@@ -527,7 +528,259 @@ def cliente_dashboard():
     </html>
     ''', libros=libros)
 
+# Ruta para listar usuarios
+@usuarios_bp.route('/admin/usuarios')
+def admin_usuarios():
+    if 'user_id' not in session:
+        flash('Debe iniciar sesión para acceder a la gestión de usuarios', 'error')
+        return redirect(url_for('login.login'))
     
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM Usuarios WHERE Rol = 0")  # Solo usuarios de tipo cliente (Rol = 0)
+        usuarios = cursor.fetchall()
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        usuarios = []
+        print(f"Error al obtener usuarios: {e}")
+
+    return render_template_string('''
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Gestionar Usuarios</title>
+        <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    </head>
+    <body>
+    ''' + navbar('admin', 'Administrador') + '''
+    <div class="container">
+        <h1>Gestionar Usuarios</h1>
+        <a href="{{ url_for('usuarios.agregar_usuario') }}" class="btn">Agregar Usuario</a>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nombre</th>
+                    <th>Email</th>
+                    <th>Teléfono</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for usuario in usuarios %}
+                <tr>
+                    <td>{{ usuario.UsuariolD }}</td>
+                    <td>{{ usuario.Nombre }} {{ usuario.PrimerApellido }} {{ usuario.SegundoApellido }}</td>
+                    <td>{{ usuario.Email }}</td>
+                    <td>{{ usuario.Telefono }}</td>
+                    <td>
+                        <a href="{{ url_for('usuarios.editar_usuario', usuario_id=usuario.UsuariolD) }}" class="btn">Editar</a>
+                        <a href="{{ url_for('usuarios.eliminar_usuario', usuario_id=usuario.UsuariolD) }}" class="btn">Eliminar</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    </body>
+    </html>
+    ''', usuarios=usuarios)
+
+# Ruta para agregar un usuario
+@usuarios_bp.route('/admin/usuarios/agregar', methods=['GET', 'POST'])
+def agregar_usuario():
+    if 'user_id' not in session:
+        flash('Debe iniciar sesión para agregar usuarios', 'error')
+        return redirect(url_for('login.login'))
+    
+    if request.method == 'POST':
+        username = request.form['username']
+        email = request.form['email']
+        password = request.form['password']
+        nombre = request.form['nombre']
+        primer_apellido = request.form['primer_apellido']
+        segundo_apellido = request.form['segundo_apellido']
+        telefono = request.form['telefono']
+        
+        hashed_password = hashlib.sha256(password.encode()).hexdigest()
+        
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT INTO Usuarios (Username, Email, Password, Nombre, PrimerApellido, SegundoApellido, Telefono, Rol) VALUES (%s, %s, %s, %s, %s, %s, %s, 0)",
+                (username, email, hashed_password, nombre, primer_apellido, segundo_apellido, telefono)
+            )
+            conn.commit()
+            cursor.close()
+            conn.close()
+            flash('Usuario agregado correctamente', 'success')
+            return redirect(url_for('usuarios.admin_usuarios'))
+        except Exception as e:
+            print(f"Error al agregar usuario: {e}")
+            flash('Error al agregar el usuario', 'error')
+
+    return render_template_string('''
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Agregar Usuario</title>
+        <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    </head>
+    <body>
+    ''' + navbar('admin', 'Administrador') + '''
+    <div class="container">
+        <h1>Agregar Usuario</h1>
+        <form method="POST">
+            <div class="form-group">
+                <label for="username">Nombre de usuario</label>
+                <input type="text" class="form-control" id="username" name="username" required>
+            </div>
+            <div class="form-group">
+                <label for="email">Correo electrónico</label>
+                <input type="email" class="form-control" id="email" name="email" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Contraseña</label>
+                <input type="password" class="form-control" id="password" name="password" required>
+            </div>
+            <div class="form-group">
+                <label for="nombre">Nombre</label>
+                <input type="text" class="form-control" id="nombre" name="nombre" required>
+            </div>
+            <div class="form-group">
+                <label for="primer_apellido">Primer Apellido</label>
+                <input type="text" class="form-control" id="primer_apellido" name="primer_apellido" required>
+            </div>
+            <div class="form-group">
+                <label for="segundo_apellido">Segundo Apellido</label>
+                <input type="text" class="form-control" id="segundo_apellido" name="segundo_apellido" required>
+            </div>
+            <div class="form-group">
+                <label for="telefono">Teléfono</label>
+                <input type="tel" class="form-control" id="telefono" name="telefono" required>
+            </div>
+            <button type="submit" class="btn">Agregar Usuario</button>
+        </form>
+    </div>
+    </body>
+    </html>
+    ''')
+
+# Ruta para editar un usuario
+@usuarios_bp.route('/admin/usuarios/editar/<int:usuario_id>', methods=['GET', 'POST'])
+def editar_usuario(usuario_id):
+    if 'user_id' not in session:
+        flash('Debe iniciar sesión para editar usuarios', 'error')
+        return redirect(url_for('login.login'))
+    
+    if request.method == 'POST':
+        username = request.form['username']
+        email = request.form['email']
+        nombre = request.form['nombre']
+        primer_apellido = request.form['primer_apellido']
+        segundo_apellido = request.form['segundo_apellido']
+        telefono = request.form['telefono']
+        
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE Usuarios SET Username = %s, Email = %s, Nombre = %s, PrimerApellido = %s, SegundoApellido = %s, Telefono = %s WHERE UsuariolD = %s",
+                (username, email, nombre, primer_apellido, segundo_apellido, telefono, usuario_id)
+            )
+            conn.commit()
+            cursor.close()
+            conn.close()
+            flash('Usuario actualizado correctamente', 'success')
+            return redirect(url_for('usuarios.admin_usuarios'))
+        except Exception as e:
+            print(f"Error al actualizar usuario: {e}")
+            flash('Error al actualizar el usuario', 'error')
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM Usuarios WHERE UsuariolD = %s", (usuario_id,))
+        usuario = cursor.fetchone()
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        print(f"Error al obtener usuario: {e}")
+        return "Usuario no encontrado", 404
+
+    return render_template_string('''
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Editar Usuario</title>
+        <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    </head>
+    <body>
+    ''' + navbar('admin', 'Administrador') + '''
+    <div class="container">
+        <h1>Editar Usuario</h1>
+        <form method="POST">
+            <div class="form-group">
+                <label for="username">Nombre de usuario</label>
+                <input type="text" class="form-control" id="username" name="username" value="{{ usuario.Username }}" required>
+            </div>
+            <div class="form-group">
+                <label for="email">Correo electrónico</label>
+                <input type="email" class="form-control" id="email" name="email" value="{{ usuario.Email }}" required>
+            </div>
+            <div class="form-group">
+                <label for="nombre">Nombre</label>
+                <input type="text" class="form-control" id="nombre" name="nombre" value="{{ usuario.Nombre }}" required>
+            </div>
+            <div class="form-group">
+                <label for="primer_apellido">Primer Apellido</label>
+                <input type="text" class="form-control" id="primer_apellido" name="primer_apellido" value="{{ usuario.PrimerApellido }}" required>
+            </div>
+            <div class="form-group">
+                <label for="segundo_apellido">Segundo Apellido</label>
+                <input type="text" class="form-control" id="segundo_apellido" name="segundo_apellido" value="{{ usuario.SegundoApellido }}" required>
+            </div>
+            <div class="form-group">
+                <label for="telefono">Teléfono</label>
+                <input type="tel" class="form-control" id="telefono" name="telefono" value="{{ usuario.Telefono }}" required>
+            </div>
+            <button type="submit" class="btn">Actualizar Usuario</button>
+        </form>
+    </div>
+    </body>
+    </html>
+    ''', usuario=usuario)
+
+# Ruta para eliminar un usuario
+@usuarios_bp.route('/admin/usuarios/eliminar/<int:usuario_id>')
+def eliminar_usuario(usuario_id):
+    if 'user_id' not in session:
+        flash('Debe iniciar sesión para eliminar usuarios', 'error')
+        return redirect(url_for('login.login'))
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM Usuarios WHERE UsuariolD = %s", (usuario_id,))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        flash('Usuario eliminado correctamente', 'success')
+    except Exception as e:
+        print(f"Error al eliminar usuario: {e}")
+        flash('Error al eliminar el usuario', 'error')
+
+    return redirect(url_for('usuarios.admin_usuarios'))    
+
 @usuarios_bp.route('/mis_pedidos')
 def mis_pedidos():
     # Verificar si el usuario ha iniciado sesión
