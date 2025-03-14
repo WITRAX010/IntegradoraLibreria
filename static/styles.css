@@ -1,0 +1,412 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f7f7f7;
+    line-height: 1.6;
+    color: #333;
+    margin: 0;
+    padding: 0;
+}
+header {
+    background-color: #2c3e50;
+    color: white;
+    padding: 1rem;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+.navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 1rem;
+}
+.logo {
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+.nav-links {
+    display: flex;
+    list-style: none;
+}
+.nav-links li {
+    margin-left: 1.5rem;
+}
+.nav-links a {
+    color: white;
+    text-decoration: none;
+    transition: color 0.3s;
+}
+.nav-links a:hover {
+    color: #3498db;
+}
+.container {
+    max-width: 1200px;
+    margin: 2rem auto;
+    padding: 0 2rem;
+}
+footer {
+    background-color: #2c3e50;
+    color: white;
+    text-align: center;
+    padding: 1rem;
+    margin-top: 2rem;
+}
+.btn {
+    display: inline-block;
+    background: #3498db;
+    color: white;
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    text-decoration: none;
+    font-size: 1rem;
+    transition: background 0.3s;
+}
+.btn:hover {
+    background: #2980b9;
+}
+.card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+.flash-message {
+    padding: 0.75rem;
+    margin: 1rem 0;
+    border-radius: 4px;
+}
+.flash-success {
+    background-color: #d4edda;
+    color: #155724;
+}
+.flash-error {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+@media (max-width: 768px) {
+    .navbar {
+        flex-direction: column;
+    }
+    .nav-links {
+        margin-top: 1rem;
+    }
+    .nav-links li {
+        margin: 0 0.5rem;
+    }
+}
+
+/* Estilos específicos para el dashboard de admin */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+.stat-card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    padding: 1.5rem;
+    text-align: center;
+}
+.stat-value {
+    font-size: 2rem;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+    color: #2c3e50;
+}
+.stat-label {
+    color: #7f8c8d;
+    font-size: 1rem;
+}
+
+/* Estilos específicos para la tabla de libros */
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.table th, .table td {
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.table th {
+    background-color: #2c3e50;
+    color: white;
+    font-weight: bold;
+}
+
+.table tr:hover {
+    background-color: #f9f9f9;
+}
+
+.table td {
+    color: #333;
+}
+
+/* Estilos para los botones dentro de la tabla */
+.table .btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    background-color: #3498db;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.table .btn:hover {
+    background-color: #2980b9;
+}
+
+/* Estilos para formularios */
+.form-group {
+    margin-bottom: 1rem;
+}
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+}
+.form-control {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 1rem;
+}
+textarea.form-control {
+    min-height: 100px;
+}
+/* Estilos generales */
+.navbar {
+    background-color: #333;
+    color: white;
+    padding: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.navbar .logo a {
+    color: white;
+    text-decoration: none;
+    font-size: 1.5em;
+}
+
+.navbar .nav-links {
+    list-style: none;
+    display: flex;
+    gap: 20px;
+}
+
+.navbar .nav-links a {
+    color: white;
+    text-decoration: none;
+}
+
+.libro-card {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+    position: relative;
+    transition: transform 0.3s;
+}
+
+.libro-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+.etiqueta-nuevo {
+    background-color: #FF5722;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.star-rating {
+    color: #FFD700;
+    font-size: 24px;
+    margin: 10px 0;
+}
+
+.libros-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 20px;
+}
+
+.precio {
+    font-size: 1.2em;
+    font-weight: bold;
+    color: #333;
+    margin: 10px 0;
+}
+
+.acciones {
+    margin-top: 15px;
+}
+
+.rating-container {
+    display: flex;
+    align-items: center;
+    margin: 10px 0;
+}
+
+.rating-stars {
+    display: inline-block;
+    margin-right: 10px;
+}
+
+.rating-value {
+    font-weight: bold;
+    margin-left: 5px;
+}
+
+.star-rating-select .star {
+    cursor: pointer;
+    font-size: 24px;
+    color: #ccc;
+}
+
+.star-rating-select .star:hover {
+    color: #FFD700;
+}
+
+.form-container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 20px;
+    background: #f9f9f9;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+.form-control {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 16px;
+}
+
+.password-section {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid #ddd;
+}
+
+.btn-save {
+    background-color: #4CAF50;
+    padding: 12px 20px;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+.btn-save:hover {
+    background-color: #45a049;
+}
+
+.alert {
+    padding: 10px;
+    margin-bottom: 15px;
+    border-radius: 4px;
+}
+
+.alert-success {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.alert-error {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+.comentarios-list {
+    margin-top: 20px;
+}
+
+.comentario {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+    background-color: #f9f9f9;
+}
+
+.comentario strong {
+    font-size: 1.1em;
+    color: #333;
+}
+
+.comentario em {
+    font-size: 0.9em;
+    color: #777;
+}
+
+.comentario p {
+    margin-top: 10px;
+    font-size: 1em;
+    color: #555;
+}
+
+.rating-stars {
+    margin: 5px 0;
+}
+/* Estilos para el formulario de búsqueda */
+.search-form {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.search-form input[type="text"] {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 16px;
+}
+
+.search-form .btn-search {
+    padding: 10px 20px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+.search-form .btn-search:hover {
+    background-color: #0056b3;
+}
