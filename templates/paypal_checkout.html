@@ -1,0 +1,327 @@
+{% extends "base.html" %}
+
+{% block title %}Finalizar Compra - LibreriaKOA{% endblock %}
+
+{% block extra_css %}
+<style>
+    .checkout-container {
+        max-width: 800px;
+        margin: 20px auto;
+        padding: 20px;
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    .payment-methods {
+        margin-top: 30px;
+        border-top: 1px solid #eee;
+        padding-top: 20px;
+    }
+    .payment-section {
+        margin-bottom: 30px;
+        padding: 20px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        background-color: #f9f9f9;
+    }
+    .payment-section h2 {
+        color: #0b887e;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #eee;
+    }
+    .form-group {
+        margin-bottom: 15px;
+    }
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+        color: #555;
+    }
+    .form-group input {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 16px;
+    }
+    .btn-pay {
+        background-color: #0b887e;
+        color: white;
+        padding: 12px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+        width: 100%;
+        margin-top: 10px;
+        transition: background-color 0.3s;
+    }
+    .btn-pay:hover {
+        background-color: #0a7a72;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 20px 0;
+    }
+    table th {
+        background-color: #0b887e;
+        color: white;
+        padding: 12px;
+        text-align: left;
+    }
+    table td {
+        padding: 12px;
+        border-bottom: 1px solid #ddd;
+    }
+    .total-row {
+        font-weight: bold;
+        background-color: #f5f5f5;
+    }
+    #paypal-button-container {
+        margin-top: 20px;
+    }
+    .payment-method-tabs {
+        display: flex;
+        margin-bottom: 20px;
+        border-bottom: 1px solid #ddd;
+    }
+    .payment-tab {
+        padding: 10px 20px;
+        cursor: pointer;
+        background-color: #f1f1f1;
+        border: 1px solid #ddd;
+        border-bottom: none;
+        margin-right: 5px;
+        border-radius: 5px 5px 0 0;
+    }
+    .payment-tab.active {
+        background-color: white;
+        border-bottom: 1px solid white;
+        margin-bottom: -1px;
+        font-weight: bold;
+    }
+    .payment-content {
+        display: none;
+    }
+    .payment-content.active {
+        display: block;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="checkout-container">
+    <h1>Finalizar Compra</h1>
+    
+    <div class="order-summary">
+        <h2>Resumen de tu Pedido</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Libro</th>
+                    <th>Cantidad</th>
+                    <th>Precio Unitario</th>
+                    <th>Subtotal</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if carrito %}
+                    {% for item in carrito %}
+                    <tr>
+                        <td>{{ item.nombre }}</td>
+                        <td>{{ item.cantidad }}</td>
+                        <td>${{ "%.2f"|format(item.precio) }}</td>
+                        <td>${{ "%.2f"|format(item.precio * item.cantidad) }}</td>
+                    </tr>
+                    {% endfor %}
+                    <tr class="total-row">
+                        <td colspan="3" style="text-align: right;">Total:</td>
+                        <td>${{ "%.2f"|format(total) }}</td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="4">No hay productos en el carrito</td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="payment-methods">
+        <div class="payment-method-tabs">
+            <div class="payment-tab active" onclick="showPaymentMethod('card')">Tarjeta de Crédito</div>
+            <div class="payment-tab" onclick="showPaymentMethod('paypal')">PayPal</div>
+        </div>
+
+        <div class="payment-content active" id="card-payment">
+            <h2>Pago con Tarjeta</h2>
+            <form id="card-form">
+                <div class="form-group">
+                    <label for="card-number">Número de Tarjeta</label>
+                    <input type="text" id="card-number" maxlength="16" pattern="\d{16}" required placeholder="1234 5678 9012 3456">
+                </div>
+                <div class="form-group">
+                    <label for="card-name">Nombre en la Tarjeta</label>
+                    <input type="text" id="card-name" required placeholder="Nombre como aparece en la tarjeta">
+                </div>
+                <div class="form-group" style="display: flex; gap: 15px;">
+                    <div style="flex: 1;">
+                        <label for="expiry-date">Fecha de Expiración</label>
+                        <input type="month" id="expiry-date" required>
+                    </div>
+                    <div style="flex: 1;">
+                        <label for="cvc">Código de Seguridad (CVC)</label>
+                        <input type="text" id="cvc" maxlength="3" pattern="\d{3}" required placeholder="123">
+                    </div>
+                </div>
+                <button type="submit" class="btn-pay">Pagar ${{ "%.2f"|format(total) }}</button>
+            </form>
+        </div>
+
+        <div class="payment-content" id="paypal-payment">
+            <h2>Pago con PayPal</h2>
+            <div id="paypal-button-container"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Script de PayPal -->
+<script src="https://www.paypal.com/sdk/js?client-id={{ paypal_client_id }}&currency=MXN"></script>
+<script>
+    // Mostrar método de pago seleccionado
+    function showPaymentMethod(method) {
+        document.querySelectorAll('.payment-tab').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        document.querySelectorAll('.payment-content').forEach(content => {
+            content.classList.remove('active');
+        });
+        
+        document.querySelector(`.payment-tab[onclick="showPaymentMethod('${method}')"]`).classList.add('active');
+        document.getElementById(`${method}-payment`).classList.add('active');
+    }
+
+    // Inicializar botón de PayPal
+    paypal.Buttons({
+        createOrder: function(data, actions) {
+            return actions.order.create({
+                purchase_units: [{
+                    amount: {
+                        value: '{{ "%.2f"|format(total) }}',
+                        breakdown: {
+                            item_total: {
+                                value: '{{ "%.2f"|format(total) }}',
+                                currency_code: 'MXN'
+                            }
+                        }
+                    },
+                    items: [
+                        {% for item in carrito %}
+                        {
+                            name: '{{ item.nombre|e }}',
+                            unit_amount: {
+                                value: '{{ "%.2f"|format(item.precio) }}',
+                                currency_code: 'MXN'
+                            },
+                            quantity: '{{ item.cantidad }}'
+                        }{% if not loop.last %},{% endif %}
+                        {% endfor %}
+                    ]
+                }]
+            });
+        },
+        onApprove: function(data, actions) {
+            return actions.order.capture().then(function(details) {
+                // Mostrar loader
+                document.getElementById('paypal-button-container').innerHTML = '<p>Procesando pago...</p>';
+                
+                // Enviar datos al servidor
+                fetch("{{ url_for('usuarios.crear_pago') }}", {
+                method: 'POST',
+                 headers: {
+                 'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+                     },
+                    body: JSON.stringify({
+                        orderID: data.orderID,
+                        payerID: details.payer.payer_id,
+                        carrito: {{ carrito|tojson|safe }},
+                        total: {{ total }},
+                        metodo: 'paypal'
+                    })
+                })
+                .then(response => {
+                    if (!response.ok) throw new Error('Error en el servidor');
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        window.location.href = "{{ url_for('usuarios.pago_exitoso') }}?order_id=" + data.order_id;
+                    } else {
+                        throw new Error(data.message || 'Error al procesar el pago');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert(error.message);
+                    window.location.reload();
+                });
+            });
+        },
+        onError: function(err) {
+            console.error('Error en PayPal:', err);
+            alert('Ocurrió un error con PayPal: ' + err.message);
+        }
+    }).render('#paypal-button-container');
+
+    // Manejar pago con tarjeta (simulación)
+    document.getElementById('card-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // Mostrar loader
+        const btn = this.querySelector('button[type="submit"]');
+        const originalText = btn.textContent;
+        btn.innerHTML = '<i class="loader"></i> Procesando pago...';
+        btn.disabled = true;
+        
+        // Simular procesamiento
+        setTimeout(() => {
+            fetch("{{ url_for('usuarios.crear_pago') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({
+                    carrito: {{ carrito|tojson|safe }},
+                    total: {{ total }},
+                    metodo: 'tarjeta',
+                    ultimos4: document.getElementById('card-number').value.slice(-4)
+                })
+            })
+            .then(response => {
+                if (!response.ok) throw new Error('Error en el servidor');
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    window.location.href = "{{ url_for('usuarios.pago_exitoso') }}?order_id=" + data.order_id;
+                } else {
+                    throw new Error(data.message || 'Error al procesar el pago');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error: ' + error.message);
+                btn.textContent = originalText;
+                btn.disabled = false;
+            });
+        }, 1500);
+    });
+</script>
+{% endblock %}

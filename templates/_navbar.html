@@ -1,0 +1,20 @@
+<header>
+    <nav class="navbar">
+        <div class="logo"><a href="{{ url_for('usuarios.cliente_dashboard') }}" style="color: white; text-decoration: none;">LibreriaKOA</a></div>
+        <ul class="nav-links">
+            {% if role == 'admin' %}
+                <li><a href="{{ url_for('usuarios.admin_libros') }}">Gestionar Libros</a></li>
+                <li><a href="{{ url_for('usuarios.admin_pedidos') }}">Pedidos</a></li>
+                <li><a href="{{ url_for('usuarios.admin_reportes') }}">Reportes</a></li>
+                <li><a href="{{ url_for('usuarios.admin_usuarios') }}">Usuarios</a></li>
+            {% else %}
+                <li><a href="{{ url_for('usuarios.cliente_dashboard') }}">Inicio</a></li>
+                <li><a href="{{ url_for('usuarios.carrito') }}">Carrito</a></li>
+                <li><a href="{{ url_for('usuarios.mis_pedidos') }}">Mis Pedidos</a></li>
+                <li><a href="{{ url_for('usuarios.direcciones') }}">Mis Direcciones</a></li>
+                <li><a href="{{ url_for('usuarios.configuracion') }}">Mi Cuenta</a></li>
+            {% endif %}
+            <li><a href="{{ url_for('usuarios.logout') }}">Cerrar sesión</a></li>
+        </ul>
+    </nav>
+</header>

@@ -4,9 +4,59 @@ import hashlib
 import mysql.connector  
 from datetime import datetime, timedelta
 import requests
+from extensions import mail
+from flask_mail import Message
+from flask import Blueprint, request, jsonify
+from db import get_db_connection
+from functools import wraps
+
 
 # Blueprint para manejar rutas de usuario
-usuarios_bp = Blueprint('usuarios', __name__)
+usuarios_bp = Blueprint('usuarios', __name__, url_prefix='/usuarios')
+
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:  # Verifica si el usuario está autenticado
+            flash("Debes iniciar sesión para acceder a esta página.", "warning")
+            return redirect(url_for('auth.auth_login'))  # Redirige al login si no hay sesión activa
+        return f(*args, **kwargs)
+    return decorated_function
+
+def require_api_key(f):
+    def decorated_function(*args, **kwargs):
+        api_key = request.headers.get('X-API-KEY')
+        if not api_key:
+            return jsonify({"error": "API Key requerida"}), 403
+
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM Usuarios WHERE api_key = %s", (api_key,))
+        user = cursor.fetchone()
+        cursor.close()
+        conn.close()
+
+        if not user:
+            return jsonify({"error": "API Key inválida"}), 403
+
+        return f(*args, **kwargs)
+    return decorated_function
+
+@usuarios_bp.route('/perfil', methods=['GET'])
+@require_api_key
+def perfil():
+    api_key = request.headers.get('X-API-KEY')
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT Nombre, PrimerApellido, SegundoApellido, Username, Rol FROM Usuarios WHERE api_key = %s", (api_key,))
+    user = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    
+    if user:
+        return jsonify(user)
+    return jsonify({"error": "Usuario no encontrado"}), 404
+
 # Función para obtener información de un libro desde una API externa
 def obtener_informacion_libro(isbn):
     url = f"https://api.ejemplo.com/libros/{isbn}"  # URL de la API (cambia esto por la URL real)
@@ -415,7 +465,11 @@ def cliente_dashboard():
                 </div>
                 <p>Stock: {{ libro.Stock }}</p>
                 <div class="acciones">
-                    <a href="#" class="btn" onclick="agregarAlCarrito({{ libro.LibrolD }})">Agregar al Carrito</a>
+                    <!-- Botón para agregar al carrito -->
+                    <form action="{{ url_for('usuarios.agregar_al_carrito', libro_id=libro.LibrolD) }}" method="POST" style="display: inline;">
+                        <button type="submit" class="btn">Agregar al Carrito</button>
+                    </form>
+                    <!-- Botón de valorar (no lo modificamos) -->
                     <a href="#" class="btn" onclick="mostrarValorarLibro({{ libro.LibrolD }})">Valorar</a>
                     <a href="{{ url_for('usuarios.ver_comentarios_cliente', libro_id=libro.LibrolD) }}" class="btn">Ver Comentarios</a>
                 </div>
@@ -821,7 +875,47 @@ def mis_pedidos():
         flash('Debe iniciar sesión para ver sus pedidos', 'error')
         return redirect(url_for('login.login'))
         
-    nombre = request.args.get('nombre', 'Cliente')
+    user_id = session['user_id']
+    nombre = session.get('nombre', 'Cliente')
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        
+        # Obtener los pedidos del usuario
+        cursor.execute("""
+            SELECT p.PedidoID, p.FechaPedido, p.Total, p.Estado
+            FROM Pedidos p
+            WHERE p.UsuarioID = %s
+            ORDER BY p.FechaPedido DESC
+        """, (user_id,))
+        pedidos = cursor.fetchall()
+        
+        # Para cada pedido, obtener sus detalles (CON LA MODIFICACIÓN PARA AGRUPAR)
+        for pedido in pedidos:
+            cursor.execute("""
+                SELECT 
+                    LibroID,
+                    NombreLibro,
+                    Descripcion,
+                    SUM(dp.Cantidad) as Cantidad,
+                    dp.PrecioUnitario,
+                    SUM(dp.Cantidad * dp.PrecioUnitario) as Subtotal
+                FROM DetallePedidos dp
+                JOIN Libros l ON dp.LibroID = LibroID
+                WHERE dp.PedidoID = %s
+                GROUP BY LibroID, NombreLibro, Descripcion, dp.PrecioUnitario
+            """, (pedido['PedidoID'],))
+            pedido['detalles'] = cursor.fetchall()
+        
+        cursor.close()
+        conn.close()
+        
+    except Exception as e:
+        print(f"Error al obtener pedidos: {e}")
+        pedidos = []
+        flash('Error al cargar tus pedidos', 'error')
+    
     return render_template_string('''
     <!DOCTYPE html>
     <html lang="es">
@@ -830,16 +924,114 @@ def mis_pedidos():
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Mis Pedidos</title>
         <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+        <style>
+            .pedido-card {
+                border: 1px solid #ddd;
+                border-radius: 8px;
+                padding: 15px;
+                margin-bottom: 20px;
+                background-color: #f9f9f9;
+            }
+            .pedido-header {
+                display: flex;
+                justify-content: space-between;
+                margin-bottom: 10px;
+                padding-bottom: 10px;
+                border-bottom: 1px solid #eee;
+            }
+            .pedido-id {
+                font-weight: bold;
+                color: #0b887e;
+            }
+            .pedido-fecha {
+                color: #666;
+            }
+            .pedido-total {
+                font-weight: bold;
+                text-align: right;
+            }
+            .pedido-estado {
+                padding: 3px 8px;
+                border-radius: 4px;
+                font-size: 0.9em;
+                background-color: #4CAF50;
+                color: white;
+            }
+            .detalle-item {
+                display: flex;
+                justify-content: space-between;
+                padding: 8px 0;
+                border-bottom: 1px dashed #eee;
+            }
+            .detalle-nombre {
+                flex: 2;
+            }
+            .detalle-cantidad, .detalle-precio, .detalle-subtotal {
+                flex: 1;
+                text-align: center;
+            }
+            .detalle-header {
+                font-weight: bold;
+                border-bottom: 1px solid #ddd;
+                margin-bottom: 5px;
+                padding-bottom: 5px;
+            }
+            .no-pedidos {
+                text-align: center;
+                padding: 20px;
+                color: #666;
+            }
+        </style>
     </head>
     <body>
     ''' + navbar('cliente', nombre) + '''
     <div class="container">
         <h1>Mis Pedidos</h1>
-        <p>Aquí puedes ver el historial de tus pedidos.</p>
+        
+        {% if pedidos %}
+            {% for pedido in pedidos %}
+            <div class="pedido-card">
+                <div class="pedido-header">
+                    <div>
+                        <span class="pedido-id">Pedido #{{ pedido.PedidoID }}</span>
+                        <span class="pedido-fecha"> - {{ pedido.FechaPedido.strftime('%d/%m/%Y %H:%M') }}</span>
+                    </div>
+                    <div>
+                        <span class="pedido-estado">{{ pedido.Estado }}</span>
+                    </div>
+                </div>
+                
+                <div class="detalle-header detalle-item">
+                    <div class="detalle-nombre">Libro</div>
+                    <div class="detalle-cantidad">Cantidad</div>
+                    <div class="detalle-precio">Precio Unitario</div>
+                    <div class="detalle-subtotal">Subtotal</div>
+                </div>
+                
+                {% for detalle in pedido.detalles %}
+                <div class="detalle-item">
+                    <div class="detalle-nombre">{{ detalle.NombreLibro }}</div>
+                    <div class="detalle-cantidad">{{ detalle.Cantidad }}</div>
+                    <div class="detalle-precio">${{ detalle.PrecioUnitario }}</div>
+                    <div class="detalle-subtotal">${{ (detalle.Cantidad * detalle.PrecioUnitario)|round(2) }}</div>
+                </div>
+                {% endfor %}
+                
+                <div class="pedido-total">
+                    Total del pedido: ${{ pedido.Total }}
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="no-pedidos">
+                <p>No tienes pedidos registrados.</p>
+                <a href="{{ url_for('usuarios.cliente_dashboard') }}" class="btn">Ir a comprar</a>
+            </div>
+        {% endif %}
     </div>
     </body>
     </html>
-    ''')
+    ''', pedidos=pedidos)
 
 @usuarios_bp.route('/configuracion', methods=['GET', 'POST'])
 def configuracion():
@@ -1450,7 +1642,106 @@ def admin_reportes():
     </html>
     ''')
 
+@usuarios_bp.route('/comprar', methods=['POST'])
+def comprar():
+    if 'user_id' not in session:
+        flash('Debe iniciar sesión para realizar una compra', 'error')
+        return redirect(url_for('login.login'))
     
+    if 'carrito' not in session or not session['carrito']:
+        flash('No hay libros en el carrito', 'error')
+        return redirect(url_for('usuarios.carrito'))
+    
+    try:
+        user_id = session['user_id']
+        carrito = session['carrito']
+        total = sum(item['precio'] * item['cantidad'] for item in carrito)
+        
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        
+        # Verificar que el usuario existe
+        cursor.execute("SELECT UsuariolD, Email, Nombre FROM Usuarios WHERE UsuariolD = %s", (user_id,))
+        usuario = cursor.fetchone()
+        
+        if not usuario:
+            flash('Usuario no encontrado', 'error')
+            return redirect(url_for('usuarios.carrito'))
+        
+        # Verificar stock disponible antes de procesar el pedido
+        for item in carrito:
+            cursor.execute("SELECT Stock FROM Libros WHERE LibrolD = %s", (item['libro_id'],))
+            libro = cursor.fetchone()
+            
+            if not libro:
+                flash(f'El libro "{item["nombre"]}" no existe', 'error')
+                return redirect(url_for('usuarios.carrito'))
+            
+            if libro['Stock'] < item['cantidad']:
+                flash(f'No hay suficiente stock para "{item["nombre"]}"', 'error')
+                return redirect(url_for('usuarios.carrito'))
+        
+        # Insertar el pedido principal
+        cursor.execute(
+            "INSERT INTO Pedidos (UsuarioID, Total) VALUES (%s, %s)",
+            (user_id, total)
+        )
+        pedido_id = cursor.lastrowid
+        
+        # Insertar los detalles del pedido y actualizar stock
+        for item in carrito:
+            # Insertar detalle
+            cursor.execute(
+                "INSERT INTO DetallePedidos (PedidoID, LibroID, Cantidad, PrecioUnitario) VALUES (%s, %s, %s, %s)",
+                (pedido_id, item['libro_id'], item['cantidad'], item['precio'])
+            )
+            
+            # Actualizar stock
+            cursor.execute(
+                "UPDATE Libros SET Stock = Stock - %s WHERE LibrolD = %s",
+                (item['cantidad'], item['libro_id'])
+            )
+        
+        conn.commit()
+        
+        # Crear ticket de compra
+        ticket = f"Resumen de tu compra (Pedido #{pedido_id}):\n\n"
+        for item in carrito:
+            ticket += f"- {item['nombre']} (Cantidad: {item['cantidad']}, Precio unitario: ${item['precio']:.2f})\n"
+        ticket += f"\nTotal: ${total:.2f}\n"
+        
+        # Enviar correos
+        msg_usuario = Message(
+            subject=f"Ticket de compra #{pedido_id} - LibreriaKOA",
+            sender='20223tn010@utez.edu.mx',
+            recipients=[usuario['Email']]
+        )
+        msg_usuario.body = ticket
+        mail.send(msg_usuario)
+        
+        msg_admin = Message(
+            subject=f"Nueva compra #{pedido_id} - {usuario['Nombre']}",
+            sender='20223tn010@utez.edu.mx',
+            recipients=['20223tn125@utez.edu.mx']
+        )
+        msg_admin.body = f"Se ha realizado una nueva compra:\n\n{ticket}"
+        mail.send(msg_admin)
+        
+        # Limpiar carrito
+        session['carrito'] = []
+        
+        flash(f'Compra realizada correctamente. Número de pedido: #{pedido_id}', 'success')
+        return redirect(url_for('usuarios.mis_pedidos'))
+    
+    except Exception as e:
+        print(f"Error al procesar la compra: {e}")
+        flash('Error al procesar la compra', 'error')
+        return redirect(url_for('usuarios.carrito'))
+    finally:
+        if 'cursor' in locals():
+            cursor.close()
+        if 'conn' in locals():
+            conn.close()
     
 @usuarios_bp.route('/carrito')
 def carrito():
@@ -1458,7 +1749,9 @@ def carrito():
         flash('Debe iniciar sesión para acceder al carrito', 'error')
         return redirect(url_for('login.login'))
     
-    nombre = request.args.get('nombre', 'Cliente')
+    carrito = session.get('carrito', [])
+    total = sum(item['precio'] * item['cantidad'] for item in carrito)
+    
     return render_template_string('''
     <!DOCTYPE html>
     <html lang="es">
@@ -1467,14 +1760,238 @@ def carrito():
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Carrito de Compras</title>
         <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+        <style>
+            table th {
+                background-color: #0b887e;
+                color: white;
+            }
+            .btn-accion {
+                padding: 5px 10px;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 14px;
+                margin: 0 2px;
+            }
+            .btn-eliminar {
+                background-color: #ff4d4d;
+                color: white;
+            }
+            .btn-eliminar:hover {
+                background-color: #cc0000;
+            }
+            .btn-aumentar {
+                background-color: #4CAF50;
+                color: white;
+            }
+            .btn-aumentar:hover {
+                background-color: #45a049;
+            }
+            .btn-reducir {
+                background-color: #ffcc00;
+                color: black;
+            }
+            .btn-reducir:hover {
+                background-color: #e6b800;
+            }
+            .cantidad {
+                display: inline-block;
+                width: 30px;
+                text-align: center;
+            }
+            .total {
+                margin-top: 20px;
+                font-size: 1.2em;
+                font-weight: bold;
+            }
+            .btn-comprar {
+                background-color: #4CAF50;
+                color: white;
+                padding: 10px 20px;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 16px;
+                margin-top: 20px;
+            }
+            .btn-comprar:hover {
+                background-color: #45a049;
+            }
+        </style>
     </head>
     <body>
-    ''' + navbar('cliente', nombre) + '''
+    ''' + navbar('cliente', session.get('nombre', 'Cliente')) + '''
     <div class="container">
         <h1>Carrito de Compras</h1>
-        <p>Aquí puedes ver los libros que has agregado al carrito.</p>
+        {% if carrito %}
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Libro</th>
+                    <th>Precio Unitario</th>
+                    <th>Cantidad</th>
+                    <th>Subtotal</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in carrito %}
+                <tr>
+                    <td>{{ item.nombre }}</td>
+                    <td>${{ item.precio }}</td>
+                    <td>
+                        <form action="{{ url_for('usuarios.reducir_cantidad', libro_id=item.libro_id) }}" method="POST" style="display: inline;">
+                            <button type="submit" class="btn-accion btn-reducir">−</button>
+                        </form>
+                        <span class="cantidad">{{ item.cantidad }}</span>
+                        <form action="{{ url_for('usuarios.aumentar_cantidad', libro_id=item.libro_id) }}" method="POST" style="display: inline;">
+                            <button type="submit" class="btn-accion btn-aumentar">+</button>
+                        </form>
+                    </td>
+                    <td>${{ item.precio * item.cantidad }}</td>
+                    <td>
+                        <form action="{{ url_for('usuarios.eliminar_del_carrito', libro_id=item.libro_id) }}" method="POST" style="display: inline;">
+                            <button type="submit" class="btn-accion btn-eliminar">Eliminar</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <h3>Total: ${{ total }}</h3>
+        <form action="{{ url_for('usuarios.comprar') }}" method="POST">
+            <button type="submit" class="btn-comprar">COMPRAR</button>
+        </form>
+        {% else %}
+        <p>No hay libros en el carrito.</p>
+        {% endif %}
     </div>
     </body>
     </html>
-    ''')
+    ''', carrito=carrito, total=total)
 
+
+@usuarios_bp.route('/agregar_al_carrito/<int:libro_id>', methods=['POST'])
+def agregar_al_carrito(libro_id):
+    if 'user_id' not in session:
+        flash('Debe iniciar sesión para agregar libros al carrito', 'error')
+        return redirect(url_for('login.login'))
+    
+    # Obtener el carrito de la sesión (si no existe, se crea uno vacío)
+    if 'carrito' not in session:
+        session['carrito'] = []
+    
+    # Verificar si el libro ya está en el carrito
+    carrito = session['carrito']
+    libro_en_carrito = next((item for item in carrito if item['libro_id'] == libro_id), None)
+    
+    if libro_en_carrito:
+        # Si el libro ya está en el carrito, aumentar la cantidad
+        libro_en_carrito['cantidad'] += 1
+    else:
+        # Si el libro no está en el carrito, agregarlo
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute("SELECT * FROM Libros WHERE LibrolD = %s", (libro_id,))
+            libro = cursor.fetchone()
+            cursor.close()
+            conn.close()
+            
+            if libro:
+                carrito.append({
+                    'libro_id': libro['LibrolD'],
+                    'nombre': libro['NombreLibro'],
+                    'precio': float(libro['Precio']),  # Asegurarse de que el precio sea un float
+                    'cantidad': 1  # Cantidad inicial
+                })
+        except Exception as e:
+            print(f"Error al obtener el libro: {e}")
+            flash('Error al agregar el libro al carrito', 'error')
+            return redirect(url_for('usuarios.cliente_dashboard'))
+    
+    # Guardar el carrito actualizado en la sesión
+    session['carrito'] = carrito
+    flash('Libro agregado al carrito', 'success')
+    return redirect(url_for('usuarios.cliente_dashboard'))
+
+@usuarios_bp.route('/eliminar_del_carrito/<int:libro_id>', methods=['POST'])
+def eliminar_del_carrito(libro_id):
+    if 'user_id' not in session:
+        flash('Debe iniciar sesión para eliminar libros del carrito', 'error')
+        return redirect(url_for('login.login'))
+    
+    # Obtener el carrito de la sesión
+    if 'carrito' not in session:
+        flash('No hay libros en el carrito', 'error')
+        return redirect(url_for('usuarios.carrito'))
+    
+    carrito = session['carrito']
+    
+    # Buscar el libro en el carrito y eliminarlo
+    carrito = [item for item in carrito if item['libro_id'] != libro_id]
+    
+    # Guardar el carrito actualizado en la sesión
+    session['carrito'] = carrito
+    flash('Libro eliminado del carrito', 'success')
+    return redirect(url_for('usuarios.carrito'))
+
+@usuarios_bp.route('/aumentar_cantidad/<int:libro_id>', methods=['POST'])
+def aumentar_cantidad(libro_id):
+    if 'user_id' not in session:
+        flash('Debe iniciar sesión para modificar el carrito', 'error')
+        return redirect(url_for('login.login'))
+    
+    if 'carrito' not in session:
+        flash('No hay libros en el carrito', 'error')
+        return redirect(url_for('usuarios.carrito'))
+    
+    carrito = session['carrito']
+    
+    # Buscar el libro en el carrito
+    for item in carrito:
+        if item['libro_id'] == libro_id:
+            # Verificar stock disponible (opcional)
+            try:
+                conn = get_db_connection()
+                cursor = conn.cursor(dictionary=True)
+                cursor.execute("SELECT Stock FROM Libros WHERE LibrolD = %s", (libro_id,))
+                libro = cursor.fetchone()
+                cursor.close()
+                conn.close()
+                
+                if libro and item['cantidad'] < libro['Stock']:
+                    item['cantidad'] += 1
+                    flash('Cantidad aumentada correctamente', 'success')
+                else:
+                    flash('No hay suficiente stock disponible', 'error')
+            except Exception as e:
+                print(f"Error al verificar stock: {e}")
+                item['cantidad'] += 1  # Si falla la verificación, igual aumentamos
+    
+    session['carrito'] = carrito
+    return redirect(url_for('usuarios.carrito'))
+
+@usuarios_bp.route('/reducir_cantidad/<int:libro_id>', methods=['POST'])
+def reducir_cantidad(libro_id):
+    if 'user_id' not in session:
+        flash('Debe iniciar sesión para modificar el carrito', 'error')
+        return redirect(url_for('login.login'))
+    
+    if 'carrito' not in session:
+        flash('No hay libros en el carrito', 'error')
+        return redirect(url_for('usuarios.carrito'))
+    
+    carrito = session['carrito']
+    
+    # Buscar el libro en el carrito
+    for item in carrito:
+        if item['libro_id'] == libro_id:
+            if item['cantidad'] > 1:
+                item['cantidad'] -= 1
+                flash('Cantidad reducida correctamente', 'success')
+            else:
+                flash('No puedes reducir más. Usa el botón "Eliminar" si deseas quitarlo.', 'warning')
+    
+    session['carrito'] = carrito
+    return redirect(url_for('usuarios.carrito'))

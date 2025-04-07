@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block title %}Pago Exitoso - LibreriaKOA{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>¡Pago Completado Exitosamente!</h1>
+    <div class="success-message">
+        <p>Gracias por tu compra. Hemos recibido tu pago correctamente.</p>
+        <p>Recibirás un correo electrónico con los detalles de tu pedido.</p>
+        <a href="{{ url_for('usuarios.mis_pedidos') }}" class="btn">Ver mis pedidos</a>
+        <a href="{{ url_for('usuarios.cliente_dashboard') }}" class="btn">Volver al inicio</a>
+    </div>
+</div>
+{% endblock %}

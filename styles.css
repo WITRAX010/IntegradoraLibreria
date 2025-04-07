@@ -1,0 +1,58 @@
+# Calcular el total del carrito
+    total = sum(item['precio'] * item['cantidad'] for item in carrito)
+    
+    return render_template_string('''
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Carrito de Compras</title>
+        <style>
+            /* Estilos generales */
+            body {
+                font-family: Arial, sans-serif;
+                background-color: #f4f4f4;
+                margin: 0;
+                padding: 0;
+            }
+            .container {
+                max-width: 1200px;
+                margin: 0 auto;
+                padding: 20px;
+            }
+            h1 {
+                color: #333;
+            }
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 20px;
+            }
+            table th, table td {
+                padding: 10px;
+                border: 1px solid #ddd;
+                text-align: left;
+            }
+            table th {
+                background-color: #0b887e;
+                color: white;
+            }
+            .btn-eliminar {
+                background-color: #ff4d4d; /* Color rojo */
+                color: white;
+                padding: 5px 10px;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 14px;
+            }
+            .btn-eliminar:hover {
+                background-color: #cc0000; /* Color rojo oscuro al pasar el cursor */
+            }
+            .total {
+                margin-top: 20px;
+                font-size: 1.2em;
+                font-weight: bold;
+            }
+        </style>
