@@ -19,7 +19,7 @@ def login_required(f):
     def decorated_function(*args, **kwargs):
         if 'user_id' not in session:  # Verifica si el usuario está autenticado
             flash("Debes iniciar sesión para acceder a esta página.", "warning")
-            return redirect(url_for('auth.auth_login'))  # Redirige al login si no hay sesión activa
+            return redirect(url_for('login.login'))  # Redirige al login si no hay sesión activa
         return f(*args, **kwargs)
     return decorated_function
 
@@ -43,6 +43,7 @@ def require_api_key(f):
     return decorated_function
 
 @usuarios_bp.route('/perfil', methods=['GET'])
+@login_required
 @require_api_key
 def perfil():
     api_key = request.headers.get('X-API-KEY')
@@ -115,6 +116,7 @@ def es_libro_nuevo(fecha_publicacion):
 
 
 @usuarios_bp.route('/direcciones', methods=['GET', 'POST'])
+@login_required
 def direcciones():
     if 'user_id' not in session:
         flash('Debe iniciar sesión para ver sus direcciones', 'error')
@@ -166,6 +168,7 @@ def direcciones():
 
 
 @usuarios_bp.route('/direcciones/editar/<int:direccion_id>', methods=['GET', 'POST'])
+@login_required
 def editar_direccion(direccion_id):
     if 'user_id' not in session:
         flash('Debe iniciar sesión para editar direcciones', 'error')
@@ -220,6 +223,7 @@ def editar_direccion(direccion_id):
     return render_template('editar_direccion.html', direccion=direccion)
 
 @usuarios_bp.route('/direcciones/eliminar/<int:direccion_id>')
+@login_required
 def eliminar_direccion(direccion_id):
     if 'user_id' not in session:
         flash('Debe iniciar sesión para eliminar direcciones', 'error')
@@ -248,6 +252,7 @@ def eliminar_direccion(direccion_id):
     return redirect(url_for('usuarios.direcciones'))
 
 @usuarios_bp.route('/admin_dashboard')
+@login_required
 def admin_dashboard():
     if 'user_id' not in session:
         flash('Debe iniciar sesión para acceder al panel de administración', 'error')
@@ -327,6 +332,7 @@ def admin_dashboard():
     ''')
 
 @usuarios_bp.route('/admin/ver-comentarios/<int:libro_id>')
+@login_required
 def ver_comentarios(libro_id):
     if 'user_id' not in session:
         flash('Debe iniciar sesión para acceder a esta página', 'error')
@@ -386,6 +392,7 @@ def ver_comentarios(libro_id):
     ''', valoraciones=valoraciones)
 
 @usuarios_bp.route('/cliente_dashboard')
+@login_required
 def cliente_dashboard():
     if 'user_id' not in session:
         flash('Debe iniciar sesión para acceder al panel de cliente', 'error')
@@ -599,6 +606,7 @@ def cliente_dashboard():
 
 # Ruta para listar usuarios
 @usuarios_bp.route('/admin/usuarios')
+@login_required
 def admin_usuarios():
     if 'user_id' not in session:
         flash('Debe iniciar sesión para acceder a la gestión de usuarios', 'error')
@@ -661,6 +669,7 @@ def admin_usuarios():
 
 # Ruta para agregar un usuario
 @usuarios_bp.route('/admin/usuarios/agregar', methods=['GET', 'POST'])
+@login_required
 def agregar_usuario():
     if 'user_id' not in session:
         flash('Debe iniciar sesión para agregar usuarios', 'error')
@@ -745,6 +754,7 @@ def agregar_usuario():
 # Ruta para editar un usuario
 # Ruta para editar un usuario (incluyendo cambio de contraseña)
 @usuarios_bp.route('/admin/usuarios/editar/<int:usuario_id>', methods=['GET', 'POST'])
+@login_required
 def editar_usuario(usuario_id):
     if 'user_id' not in session:
         flash('Debe iniciar sesión para editar usuarios', 'error')
@@ -849,6 +859,7 @@ def editar_usuario(usuario_id):
 
 # Ruta para eliminar un usuario
 @usuarios_bp.route('/admin/usuarios/eliminar/<int:usuario_id>')
+@login_required
 def eliminar_usuario(usuario_id):
     if 'user_id' not in session:
         flash('Debe iniciar sesión para eliminar usuarios', 'error')
@@ -870,6 +881,7 @@ def eliminar_usuario(usuario_id):
 
 
 @usuarios_bp.route('/mis_pedidos')
+@login_required
 def mis_pedidos():
     if 'user_id' not in session:
         flash('Debe iniciar sesión para ver sus pedidos', 'error')
@@ -1034,6 +1046,7 @@ def mis_pedidos():
     ''', pedidos=pedidos)
 
 @usuarios_bp.route('/configuracion', methods=['GET', 'POST'])
+@login_required
 def configuracion():
     if 'user_id' not in session:
         flash('Debe iniciar sesión para acceder a la configuración', 'error')
@@ -1199,6 +1212,7 @@ def configuracion():
     ''', usuario=usuario)
 
 @usuarios_bp.route('/admin/libros')
+@login_required
 def admin_libros():
     if 'user_id' not in session:
         flash('Debe iniciar sesión para acceder a la gestión de libros', 'error')
@@ -1307,12 +1321,14 @@ def admin_libros():
     ''', libros=libros)
 
 @usuarios_bp.route('/logout')
+@login_required
 def logout():
     session.pop('_flashes', None)
     session.clear()
     return redirect(url_for('login.login'))
     
 @usuarios_bp.route('/valorar-libro', methods=['POST'])
+@login_required
 def valorar_libro():
     if 'user_id' not in session:
         return {'success': False, 'message': 'Debe iniciar sesión para valorar libros'}, 401
@@ -1358,6 +1374,7 @@ def valorar_libro():
 
 
 @usuarios_bp.route('/admin/libros/agregar', methods=['GET', 'POST'])
+@login_required
 def agregar_libro():
     if 'user_id' not in session:
         flash('Debe iniciar sesión para agregar libros', 'error')
@@ -1436,6 +1453,7 @@ def agregar_libro():
 
 
 @usuarios_bp.route('/ver_comentarios_cliente/<int:libro_id>')
+@login_required
 def ver_comentarios_cliente(libro_id):
     if 'user_id' not in session:
         flash('Debe iniciar sesión para ver los comentarios', 'error')
@@ -1476,6 +1494,7 @@ def ver_comentarios_cliente(libro_id):
 
 
 @usuarios_bp.route('/admin/libros/editar/<int:libro_id>', methods=['GET', 'POST'])
+@login_required
 def editar_libro(libro_id):
     if 'user_id' not in session:
         flash('Debe iniciar sesión para editar libros', 'error')
@@ -1573,6 +1592,7 @@ def editar_libro(libro_id):
     ''', libro=libro)
 
 @usuarios_bp.route('/admin/libros/eliminar/<int:libro_id>')
+@login_required
 def eliminar_libro(libro_id):
     if 'user_id' not in session:
         flash('Debe iniciar sesión para eliminar libros', 'error')
@@ -1593,6 +1613,7 @@ def eliminar_libro(libro_id):
     return redirect(url_for('usuarios.admin_libros'))
 
 @usuarios_bp.route('/admin/pedidos')
+@login_required
 def admin_pedidos():
     if 'user_id' not in session:
         flash('Debe iniciar sesión para acceder a la gestión de pedidos', 'error')
@@ -1618,6 +1639,7 @@ def admin_pedidos():
     ''')
 
 @usuarios_bp.route('/admin/reportes')
+@login_required
 def admin_reportes():
     if 'user_id' not in session:
         flash('Debe iniciar sesión para acceder a los reportes', 'error')
@@ -1643,6 +1665,7 @@ def admin_reportes():
     ''')
 
 @usuarios_bp.route('/comprar', methods=['POST'])
+@login_required
 def comprar():
     if 'user_id' not in session:
         flash('Debe iniciar sesión para realizar una compra', 'error')
@@ -1744,6 +1767,7 @@ def comprar():
             conn.close()
     
 @usuarios_bp.route('/carrito')
+@login_required
 def carrito():
     if 'user_id' not in session:
         flash('Debe iniciar sesión para acceder al carrito', 'error')
@@ -1872,6 +1896,7 @@ def carrito():
 
 
 @usuarios_bp.route('/agregar_al_carrito/<int:libro_id>', methods=['POST'])
+@login_required
 def agregar_al_carrito(libro_id):
     if 'user_id' not in session:
         flash('Debe iniciar sesión para agregar libros al carrito', 'error')
@@ -1916,6 +1941,7 @@ def agregar_al_carrito(libro_id):
     return redirect(url_for('usuarios.cliente_dashboard'))
 
 @usuarios_bp.route('/eliminar_del_carrito/<int:libro_id>', methods=['POST'])
+@login_required
 def eliminar_del_carrito(libro_id):
     if 'user_id' not in session:
         flash('Debe iniciar sesión para eliminar libros del carrito', 'error')
@@ -1937,6 +1963,7 @@ def eliminar_del_carrito(libro_id):
     return redirect(url_for('usuarios.carrito'))
 
 @usuarios_bp.route('/aumentar_cantidad/<int:libro_id>', methods=['POST'])
+@login_required
 def aumentar_cantidad(libro_id):
     if 'user_id' not in session:
         flash('Debe iniciar sesión para modificar el carrito', 'error')
@@ -1973,6 +2000,7 @@ def aumentar_cantidad(libro_id):
     return redirect(url_for('usuarios.carrito'))
 
 @usuarios_bp.route('/reducir_cantidad/<int:libro_id>', methods=['POST'])
+@login_required
 def reducir_cantidad(libro_id):
     if 'user_id' not in session:
         flash('Debe iniciar sesión para modificar el carrito', 'error')
