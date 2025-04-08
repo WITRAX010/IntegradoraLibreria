@@ -39,7 +39,7 @@ def send_email():
 
 @app.route('/')
 def index():
-    return redirect(url_for('auth.auth_login'))
+    return redirect(url_for('login.login'))
 
 
 if __name__ == '__main__':
