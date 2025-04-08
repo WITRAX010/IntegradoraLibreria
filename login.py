@@ -1,101 +1,11 @@
 from flask import Blueprint, render_template_string, request, redirect, url_for, session, flash
-from flask import redirect, url_for
 import mysql.connector
 import hashlib
 import re
 from db import get_db_connection
-import hashlib
-from flask import Blueprint, request, jsonify, session
-import secrets
-import make_response
-login_bp = Blueprint('auth', __name__, url_prefix='/login')
 
-@login_bp.route('/', methods=['POST'], endpoint='auth_login')
-def login():
-    # Validar los campos de formulario
-    username = request.form.get('username')
-    password = request.form.get('password')
-
-    if not username or not password:
-        flash('Por favor, ingrese su nombre de usuario y contraseña.', 'error')
-        return redirect(url_for('auth.auth_login'))  # Cambia esto si el endpoint tiene otro nombre
-    
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
-        query = """
-        SELECT UsuariolD, Username, Nombre, PrimerApellido, SegundoApellido, Rol, Password, api_key
-        FROM Usuarios
-        WHERE Username = %s
-        """
-        cursor.execute(query, (username,))
-        user = cursor.fetchone()
-        
-        if user and hashlib.sha256(password.encode()).hexdigest() == user['Password']:
-            # Generar nueva API Key
-            new_api_key = secrets.token_hex(32)
-            session['api_key'] = new_api_key
-
-            # Guardar API Key en la base de datos
-            update_query = "UPDATE Usuarios SET api_key = %s WHERE UsuariolD = %s"
-            cursor.execute(update_query, (new_api_key, user['UsuariolD']))
-            conn.commit()
-
-            session['user_id'] = user['UsuariolD']
-            session['username'] = user['Username']
-            session['role'] = user['Rol']
-
-            flash('Inicio de sesión exitoso', 'success')
-            return redirect(url_for('usuarios.cliente_dashboard'))
-
-        else:
-            flash('Credenciales inválidas. Intenta nuevamente.', 'error')
-            return redirect(url_for('auth.auth_login'))  # Redirige a la página de login
-
-    except Exception as e:
-        flash(f"Error interno: {str(e)}", 'error')
-        return redirect(url_for('auth.auth_login'))
-
-@login_bp.route('/logout', methods=['POST'], endpoint='auth_logout')
-def logout():
-    # Verificamos si hay un usuario autenticado en la sesión
-    user_id = session.get('user_id')
-    
-    if not user_id:
-        return jsonify({"error": "No hay usuario autenticado"}), 401
-
-    try:
-        # Conectamos a la base de datos
-        conn = get_db_connection()
-        cursor = conn.cursor()
-
-        # Limpiamos el valor de la API Key del usuario (puedes quitarla o actualizarla a NULL)
-        cursor.execute("UPDATE Usuarios SET api_key = NULL WHERE UsuariolD = %s", (user_id,))
-        conn.commit()
-
-        # Cerramos la conexión con la base de datos
-        cursor.close()
-        conn.close()
-
-        # Limpiamos la sesión de Flask (eliminamos todos los datos almacenados de la sesión)
-        session.clear()
-
-        # Creamos la respuesta y prevenimos el almacenamiento en caché de la página
-        response = make_response(jsonify({"message": "Sesión cerrada correctamente"}))
-
-        # Establecemos encabezados para prevenir que la página se almacene en caché
-        response.headers['Cache-Control'] = 'no-store'
-        response.headers['Pragma'] = 'no-cache'
-        response.headers['Expires'] = '0'
-
-        # Redirigimos a la página de login (por ejemplo, podrías cambiar a un endpoint específico)
-        return redirect(url_for('auth.login'))
-
-    except Exception as e:
-        # Si algo falla, devolvemos un error
-        return jsonify({"error": f"Error: {str(e)}"}), 500
-    
-    
+# Blueprint para manejar rutas de login
+login_bp = Blueprint('login', __name__, url_prefix='/login')
 
 # HTML y CSS del formulario de login
 login_template = '''
